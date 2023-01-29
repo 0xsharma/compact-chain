@@ -1,21 +1,26 @@
 package main
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/0xsharma/compact-chain/core"
-	"github.com/0xsharma/compact-chain/util"
 )
 
 func main() {
-	block := &core.Block{
-		Number:     big.NewInt(1),
-		Hash:       &util.Hash{},
-		ParentHash: &util.Hash{},
-		Data:       []byte("Hello World"),
-		Miner:      &util.Address{},
-	}
+	chain := core.NewBlockchain()
 
-	fmt.Printf("%+v", block)
+	chain.AddBlock([]byte("Block 1"))
+	chain.AddBlock([]byte("Block 2"))
+	chain.AddBlock([]byte("Block 3"))
+
+	currentNumber := int(chain.Current().Number().Int64())
+
+	for i := 0; i <= currentNumber; i++ {
+		block := chain.GetBlockByNumber(big.NewInt(int64(i)))
+		println("BlockNumber : ", block.Number().String())
+		println("BlockHash : ", block.Hash().String())
+		println("ParentHash : ", block.ParentHash().String())
+		println("BlockData : ", string(block.Data()))
+		println()
+	}
 }
