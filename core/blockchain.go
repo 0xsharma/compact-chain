@@ -17,18 +17,18 @@ type Blockchain struct {
 	mutex     *sync.RWMutex
 }
 
-var defaultAccordDifficulty = 10
+var defaultConsensusDifficulty = 10
 
 func NewBlockchain(c *config.Config) *Blockchain {
 	genesis := CreateGenesisBlock()
 	var consensus consensus.Consensus
 
-	switch c.Accord {
+	switch c.ConsensusName {
 	case "pow":
-		if c.AccordDifficulty > 0 {
-			consensus = pow.NewPOW(c.AccordDifficulty)
+		if c.ConsensusDifficulty > 0 {
+			consensus = pow.NewPOW(c.ConsensusDifficulty)
 		} else {
-			consensus = pow.NewPOW(defaultAccordDifficulty)
+			consensus = pow.NewPOW(defaultConsensusDifficulty)
 		}
 	default:
 		panic("Invalid consensus algorithm")

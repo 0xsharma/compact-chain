@@ -10,8 +10,8 @@ import (
 func main() {
 
 	config := &config.Config{
-		AccordDifficulty: 16,
-		Accord:           "pow",
+		ConsensusDifficulty: 16,
+		ConsensusName:       "pow",
 	}
 
 	chain := core.NewBlockchain(config)
