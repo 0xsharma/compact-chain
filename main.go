@@ -8,7 +8,6 @@ import (
 )
 
 func main() {
-
 	config := &config.Config{
 		ConsensusDifficulty: 16,
 		ConsensusName:       "pow",

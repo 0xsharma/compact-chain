@@ -21,6 +21,7 @@ var defaultConsensusDifficulty = 10
 
 func NewBlockchain(c *config.Config) *Blockchain {
 	genesis := CreateGenesisBlock()
+
 	var consensus consensus.Consensus
 
 	switch c.ConsensusName {
@@ -32,8 +33,8 @@ func NewBlockchain(c *config.Config) *Blockchain {
 		}
 	default:
 		panic("Invalid consensus algorithm")
-
 	}
+
 	return &Blockchain{[]*types.Block{genesis}, consensus, new(sync.RWMutex)}
 }
 
