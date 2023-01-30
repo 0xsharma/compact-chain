@@ -1,4 +1,4 @@
-package core
+package types
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ type Block struct {
 	hash       *util.Hash
 	parentHash *util.Hash
 	data       []byte
+	nonce      *big.Int
 }
 
 func NewBlock(number *big.Int, parentHash *util.Hash, data []byte) *Block {
@@ -19,6 +20,7 @@ func NewBlock(number *big.Int, parentHash *util.Hash, data []byte) *Block {
 		number:     number,
 		parentHash: parentHash,
 		data:       data,
+		nonce:      big.NewInt(0),
 	}
 
 	block.hash = block.DeriveHash()
@@ -26,8 +28,16 @@ func NewBlock(number *big.Int, parentHash *util.Hash, data []byte) *Block {
 	return block
 }
 
+func (dst *Block) Clone(src *Block) {
+	dst.number = src.number
+	dst.hash = src.hash
+	dst.parentHash = src.parentHash
+	dst.data = src.data
+	dst.nonce = src.nonce
+}
+
 func (b *Block) DeriveHash() *util.Hash {
-	blockHash := bytes.Join([][]byte{b.number.Bytes(), b.parentHash.Bytes(), b.data}, []byte{})
+	blockHash := bytes.Join([][]byte{b.number.Bytes(), b.parentHash.Bytes(), b.data, b.nonce.Bytes()}, []byte{})
 
 	return util.NewHash(blockHash)
 }
@@ -46,4 +56,12 @@ func (b *Block) ParentHash() *util.Hash {
 
 func (b *Block) Data() []byte {
 	return b.data
+}
+
+func (b *Block) SetNonce(n *big.Int) {
+	b.nonce = n
+}
+
+func (b *Block) SetHash(h *util.Hash) {
+	b.hash = h
 }

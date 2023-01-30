@@ -3,11 +3,18 @@ package main
 import (
 	"math/big"
 
+	"github.com/0xsharma/compact-chain/config"
 	"github.com/0xsharma/compact-chain/core"
 )
 
 func main() {
-	chain := core.NewBlockchain()
+
+	config := &config.Config{
+		AccordDifficulty: 16,
+		Accord:           "pow",
+	}
+
+	chain := core.NewBlockchain(config)
 
 	chain.AddBlock([]byte("Block 1"))
 	chain.AddBlock([]byte("Block 2"))
