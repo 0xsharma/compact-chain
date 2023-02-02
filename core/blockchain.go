@@ -15,6 +15,7 @@ type Blockchain struct {
 	blocks    []*types.Block
 	consensus consensus.Consensus
 	mutex     *sync.RWMutex
+	lastHash  *util.Hash
 }
 
 var defaultConsensusDifficulty = 10
@@ -35,7 +36,7 @@ func NewBlockchain(c *config.Config) *Blockchain {
 		panic("Invalid consensus algorithm")
 	}
 
-	return &Blockchain{[]*types.Block{genesis}, consensus, new(sync.RWMutex)}
+	return &Blockchain{blocks: []*types.Block{genesis}, consensus: consensus, mutex: new(sync.RWMutex)}
 }
 
 func (bc *Blockchain) AddBlock(data []byte) {

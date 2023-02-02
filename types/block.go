@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"encoding/gob"
 	"math/big"
 
 	"github.com/0xsharma/compact-chain/util"
@@ -64,4 +65,35 @@ func (b *Block) SetNonce(n *big.Int) {
 
 func (b *Block) SetHash(h *util.Hash) {
 	b.hash = h
+}
+
+func (b *Block) Nonce() *big.Int {
+	return b.nonce
+}
+
+func (b *Block) Serialize() []byte {
+	var res bytes.Buffer
+	encoder := gob.NewEncoder(&res)
+
+	err := encoder.Encode(b)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return res.Bytes()
+}
+
+func DeserializeBlock(data []byte) *Block {
+	var block Block
+
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+
+	err := decoder.Decode(&block)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return &block
 }
