@@ -8,6 +8,7 @@ import (
 	"github.com/0xsharma/compact-chain/util"
 )
 
+// Block is the basic unit of the blockchain.
 type Block struct {
 	Number     *big.Int
 	Hash       *util.Hash
@@ -16,6 +17,7 @@ type Block struct {
 	Nonce      *big.Int
 }
 
+// NewBlock creates a new block and sets the hash.
 func NewBlock(number *big.Int, parentHash *util.Hash, data []byte) *Block {
 	block := &Block{
 		Number:     number,
@@ -29,6 +31,7 @@ func NewBlock(number *big.Int, parentHash *util.Hash, data []byte) *Block {
 	return block
 }
 
+// Clone returns a duplicate block from the source block.
 func (dst *Block) Clone(src *Block) {
 	dst.Number = src.Number
 	dst.Hash = src.Hash
@@ -37,40 +40,24 @@ func (dst *Block) Clone(src *Block) {
 	dst.Nonce = src.Nonce
 }
 
+// DeriveHash derives the hash of the block.
 func (b *Block) DeriveHash() *util.Hash {
 	blockHash := bytes.Join([][]byte{b.Number.Bytes(), b.ParentHash.Bytes(), b.Data, b.Nonce.Bytes()}, []byte{})
 
 	return util.NewHash(blockHash)
 }
 
-// func (b *Block) Number() *big.Int {
-// 	return b.number
-// }
-
-// func (b *Block) Hash() *util.Hash {
-// 	return b.hash
-// }
-
-// func (b *Block) ParentHash() *util.Hash {
-// 	return b.parentHash
-// }
-
-// func (b *Block) Data() []byte {
-// 	return b.data
-// }
-
+// SetNonce sets the nonce of the block.
 func (b *Block) SetNonce(n *big.Int) {
 	b.Nonce = n
 }
 
+// SetHash sets the hash of the block.
 func (b *Block) SetHash(h *util.Hash) {
 	b.Hash = h
 }
 
-// func (b *Block) Nonce() *big.Int {
-// 	return b.nonce
-// }
-
+// Serialize serializes the block object into bytes.
 func (b *Block) Serialize() []byte {
 	var res bytes.Buffer
 	encoder := gob.NewEncoder(&res)
@@ -84,6 +71,7 @@ func (b *Block) Serialize() []byte {
 	return res.Bytes()
 }
 
+// DeserializeBlock deserializes the block bytes into a block object.
 func DeserializeBlock(data []byte) *Block {
 	var block Block
 
