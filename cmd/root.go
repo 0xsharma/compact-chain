@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"math/big"
+	"os"
+	"time"
 
 	"github.com/0xsharma/compact-chain/config"
 	"github.com/0xsharma/compact-chain/core"
@@ -41,26 +42,30 @@ func init() {
 	rootCmd.AddCommand(startCmd)
 }
 
+var (
+	homePath, _ = os.UserHomeDir()
+	dbPath      = homePath + "/.compact-chain/db"
+)
+
 func demoBlockchain() {
 	config := &config.Config{
 		ConsensusDifficulty: 16,
 		ConsensusName:       "pow",
+		DBDir:               dbPath,
 	}
 
 	chain := core.NewBlockchain(config)
+	if chain.LastBlock.Number.Int64() == 0 {
+		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.Hash.String())
+	} else {
+		fmt.Println("LastNumber : ", chain.LastBlock.Number, "LastHash : ", chain.LastBlock.Hash.String())
+	}
 
-	chain.AddBlock([]byte("Block 1"))
-	chain.AddBlock([]byte("Block 2"))
-	chain.AddBlock([]byte("Block 3"))
+	lastNumber := chain.LastBlock.Number
 
-	currentNumber := int(chain.Current().Number().Int64())
-
-	for i := 0; i <= currentNumber; i++ {
-		block := chain.GetBlockByNumber(big.NewInt(int64(i)))
-		println("BlockNumber : ", block.Number().String())
-		println("BlockHash : ", block.Hash().String())
-		println("ParentHash : ", block.ParentHash().String())
-		println("BlockData : ", string(block.Data()))
-		println()
+	for i := lastNumber.Int64() + 1; i <= lastNumber.Int64()+10; i++ {
+		time.Sleep(2 * time.Second)
+		chain.AddBlock([]byte(fmt.Sprintf("Block %d", i)))
+		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.Hash.String())
 	}
 }

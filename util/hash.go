@@ -31,6 +31,13 @@ func (a Address) Bytes() []byte {
 	return a[:]
 }
 
+func ByteToHash(b []byte) *Hash {
+	hash := Hash{}
+	copy(hash[:], b[:])
+
+	return &hash
+}
+
 func NewHash(b []byte) *Hash {
 	sum := sha256.Sum256(b)
 

@@ -9,67 +9,67 @@ import (
 )
 
 type Block struct {
-	number     *big.Int
-	hash       *util.Hash
-	parentHash *util.Hash
-	data       []byte
-	nonce      *big.Int
+	Number     *big.Int
+	Hash       *util.Hash
+	ParentHash *util.Hash
+	Data       []byte
+	Nonce      *big.Int
 }
 
 func NewBlock(number *big.Int, parentHash *util.Hash, data []byte) *Block {
 	block := &Block{
-		number:     number,
-		parentHash: parentHash,
-		data:       data,
-		nonce:      big.NewInt(0),
+		Number:     number,
+		ParentHash: parentHash,
+		Data:       data,
+		Nonce:      big.NewInt(0),
 	}
 
-	block.hash = block.DeriveHash()
+	block.Hash = block.DeriveHash()
 
 	return block
 }
 
 func (dst *Block) Clone(src *Block) {
-	dst.number = src.number
-	dst.hash = src.hash
-	dst.parentHash = src.parentHash
-	dst.data = src.data
-	dst.nonce = src.nonce
+	dst.Number = src.Number
+	dst.Hash = src.Hash
+	dst.ParentHash = src.ParentHash
+	dst.Data = src.Data
+	dst.Nonce = src.Nonce
 }
 
 func (b *Block) DeriveHash() *util.Hash {
-	blockHash := bytes.Join([][]byte{b.number.Bytes(), b.parentHash.Bytes(), b.data, b.nonce.Bytes()}, []byte{})
+	blockHash := bytes.Join([][]byte{b.Number.Bytes(), b.ParentHash.Bytes(), b.Data, b.Nonce.Bytes()}, []byte{})
 
 	return util.NewHash(blockHash)
 }
 
-func (b *Block) Number() *big.Int {
-	return b.number
-}
+// func (b *Block) Number() *big.Int {
+// 	return b.number
+// }
 
-func (b *Block) Hash() *util.Hash {
-	return b.hash
-}
+// func (b *Block) Hash() *util.Hash {
+// 	return b.hash
+// }
 
-func (b *Block) ParentHash() *util.Hash {
-	return b.parentHash
-}
+// func (b *Block) ParentHash() *util.Hash {
+// 	return b.parentHash
+// }
 
-func (b *Block) Data() []byte {
-	return b.data
-}
+// func (b *Block) Data() []byte {
+// 	return b.data
+// }
 
 func (b *Block) SetNonce(n *big.Int) {
-	b.nonce = n
+	b.Nonce = n
 }
 
 func (b *Block) SetHash(h *util.Hash) {
-	b.hash = h
+	b.Hash = h
 }
 
-func (b *Block) Nonce() *big.Int {
-	return b.nonce
-}
+// func (b *Block) Nonce() *big.Int {
+// 	return b.nonce
+// }
 
 func (b *Block) Serialize() []byte {
 	var res bytes.Buffer
