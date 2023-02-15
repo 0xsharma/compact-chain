@@ -6,11 +6,10 @@ import (
 	"github.com/0xsharma/compact-chain/types"
 )
 
+// Consensus is the interface for consensus algorithms.
 type Consensus interface {
 	GetDifficulty() *big.Int
 	SetDifficulty(d *big.Int)
 	GetTarget() *big.Int
-	GetTargetHex() string
-	GetTargetBytes() []byte
 	Mine(b *types.Block) *types.Block
 }

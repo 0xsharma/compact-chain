@@ -2,66 +2,86 @@ package types
 
 import (
 	"bytes"
+	"encoding/gob"
 	"math/big"
 
 	"github.com/0xsharma/compact-chain/util"
 )
 
+// Block is the basic unit of the blockchain.
 type Block struct {
-	number     *big.Int
-	hash       *util.Hash
-	parentHash *util.Hash
-	data       []byte
-	nonce      *big.Int
+	Number     *big.Int
+	Hash       *util.Hash
+	ParentHash *util.Hash
+	Data       []byte
+	Nonce      *big.Int
 }
 
+// NewBlock creates a new block and sets the hash.
 func NewBlock(number *big.Int, parentHash *util.Hash, data []byte) *Block {
 	block := &Block{
-		number:     number,
-		parentHash: parentHash,
-		data:       data,
-		nonce:      big.NewInt(0),
+		Number:     number,
+		ParentHash: parentHash,
+		Data:       data,
+		Nonce:      big.NewInt(0),
 	}
 
-	block.hash = block.DeriveHash()
+	block.Hash = block.DeriveHash()
 
 	return block
 }
 
+// Clone returns a duplicate block from the source block.
 func (dst *Block) Clone(src *Block) {
-	dst.number = src.number
-	dst.hash = src.hash
-	dst.parentHash = src.parentHash
-	dst.data = src.data
-	dst.nonce = src.nonce
+	dst.Number = src.Number
+	dst.Hash = src.Hash
+	dst.ParentHash = src.ParentHash
+	dst.Data = src.Data
+	dst.Nonce = src.Nonce
 }
 
+// DeriveHash derives the hash of the block.
 func (b *Block) DeriveHash() *util.Hash {
-	blockHash := bytes.Join([][]byte{b.number.Bytes(), b.parentHash.Bytes(), b.data, b.nonce.Bytes()}, []byte{})
+	blockHash := bytes.Join([][]byte{b.Number.Bytes(), b.ParentHash.Bytes(), b.Data, b.Nonce.Bytes()}, []byte{})
 
 	return util.NewHash(blockHash)
 }
 
-func (b *Block) Number() *big.Int {
-	return b.number
-}
-
-func (b *Block) Hash() *util.Hash {
-	return b.hash
-}
-
-func (b *Block) ParentHash() *util.Hash {
-	return b.parentHash
-}
-
-func (b *Block) Data() []byte {
-	return b.data
-}
-
+// SetNonce sets the nonce of the block.
 func (b *Block) SetNonce(n *big.Int) {
-	b.nonce = n
+	b.Nonce = n
 }
 
+// SetHash sets the hash of the block.
 func (b *Block) SetHash(h *util.Hash) {
-	b.hash = h
+	b.Hash = h
+}
+
+// Serialize serializes the block object into bytes.
+func (b *Block) Serialize() []byte {
+	var res bytes.Buffer
+	encoder := gob.NewEncoder(&res)
+
+	err := encoder.Encode(b)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return res.Bytes()
+}
+
+// DeserializeBlock deserializes the block bytes into a block object.
+func DeserializeBlock(data []byte) *Block {
+	var block Block
+
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+
+	err := decoder.Decode(&block)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return &block
 }
