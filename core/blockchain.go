@@ -18,6 +18,7 @@ type Blockchain struct {
 	Mutex     *sync.RWMutex
 	LastHash  *util.Hash
 	Db        *dbstore.DB
+	StateDB   *dbstore.DB
 }
 
 // defaultConsensusDifficulty is the default difficulty for the proof of work consensus.
@@ -26,6 +27,11 @@ var defaultConsensusDifficulty = 10
 // NewBlockchain creates a new blockchain with the given config.
 func NewBlockchain(c *config.Config) *Blockchain {
 	db, err := dbstore.NewDB(c.DBDir)
+	if err != nil {
+		panic(err)
+	}
+
+	stateDB, err := dbstore.NewDB(c.StateDBDir)
 	if err != nil {
 		panic(err)
 	}
@@ -73,7 +79,7 @@ func NewBlockchain(c *config.Config) *Blockchain {
 		panic("Invalid consensus algorithm")
 	}
 
-	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), Db: db, LastHash: lastBlock.Hash}
+	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), Db: db, LastHash: lastBlock.Hash, StateDB: stateDB}
 
 	return bc
 }

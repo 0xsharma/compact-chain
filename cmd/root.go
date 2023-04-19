@@ -45,6 +45,7 @@ func init() {
 var (
 	homePath, _ = os.UserHomeDir()
 	dbPath      = homePath + "/.compact-chain/db"
+	stateDbPath = homePath + "/.compact-chain/statedb"
 )
 
 func demoBlockchain() {
@@ -52,6 +53,7 @@ func demoBlockchain() {
 		ConsensusDifficulty: 16,
 		ConsensusName:       "pow",
 		DBDir:               dbPath,
+		StateDBDir:          stateDbPath,
 	}
 
 	chain := core.NewBlockchain(config)
