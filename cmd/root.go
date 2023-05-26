@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"math/big"
 	"os"
 	"time"
 
@@ -54,6 +55,7 @@ func demoBlockchain() {
 		ConsensusName:       "pow",
 		DBDir:               dbPath,
 		StateDBDir:          stateDbPath,
+		MinFee:              big.NewInt(100),
 	}
 
 	chain := core.NewBlockchain(config)
