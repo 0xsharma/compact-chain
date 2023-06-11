@@ -18,6 +18,7 @@ var empty struct{}
 
 func TestTxpoolRPC(t *testing.T) {
 	t.Parallel()
+
 	rpcPort := ":1711"
 
 	txpool := txpool.NewTxPool(config.DefaultConfig().MinFee)
@@ -26,6 +27,7 @@ func TestTxpoolRPC(t *testing.T) {
 
 	// Send add Transacation request 1
 	tx1 := newTransaction(t, []byte{0x01}, []byte{0x02}, "hello", 100, 100)
+
 	res, err := SendRpcRequest(t, "TxPool.AddTx_RPC", tx1, rpcPort)
 	if err != nil {
 		t.Fatal(err)
@@ -37,6 +39,7 @@ func TestTxpoolRPC(t *testing.T) {
 
 	// Send add Transacation request 2
 	tx2 := newTransaction(t, []byte{0x02}, []byte{0x03}, "hello1", 101, 101)
+
 	res, err = SendRpcRequest(t, "TxPool.AddTx_RPC", tx2, rpcPort)
 	if err != nil {
 		t.Fatal(err)
@@ -53,6 +56,7 @@ func TestTxpoolRPC(t *testing.T) {
 	}
 
 	var txs *types.Transactions
+
 	if resTxs, ok := res.(types.RPCResponse); !ok {
 		t.Fatal("expected RPCResponse", "got", res)
 	} else {
@@ -66,11 +70,11 @@ func TestTxpoolRPC(t *testing.T) {
 	// Assert Transactions That we sent to pool and received from pool are same
 	assert.Equal(t, tx2, txs.Array()[0])
 	assert.Equal(t, tx1, txs.Array()[1])
-
 }
 
 func SendRpcRequest(t *testing.T, method string, params interface{}, addr string) (interface{}, error) {
 	t.Helper()
+
 	hostname := "localhost"
 
 	client, err := rpc.DialHTTP("tcp", hostname+addr)
@@ -90,6 +94,7 @@ func SendRpcRequest(t *testing.T, method string, params interface{}, addr string
 
 func newTransaction(t *testing.T, from, to []byte, msg string, fee, value int64) *types.Transaction {
 	t.Helper()
+
 	return &types.Transaction{
 		From:  *util.NewAddress(from),
 		To:    *util.NewAddress(to),

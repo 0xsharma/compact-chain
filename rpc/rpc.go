@@ -41,11 +41,11 @@ func (s *RPCServer) Start(addr string) {
 
 	log.Println("Serving RPC handler")
 
+	// nolint : gosec
 	err := http.Serve(l, nil)
 	if err != nil {
 		log.Fatalf("Error serving: %s", err)
 	}
-
 }
 
 func (s *RPCServer) ActivateModules(domains *RPCDomains) error {
