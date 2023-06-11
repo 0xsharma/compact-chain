@@ -56,6 +56,7 @@ func demoBlockchain() {
 		DBDir:               dbPath,
 		StateDBDir:          stateDbPath,
 		MinFee:              big.NewInt(100),
+		RPCPort:             ":6999",
 	}
 
 	chain := core.NewBlockchain(config)

@@ -36,3 +36,7 @@ func (tp *TxPool) AddTxs(txs []*types.Transaction) {
 
 	tp.Transactions = txpoolTxs
 }
+
+func (tp *TxPool) GetTxs() []*types.Transaction {
+	return tp.Transactions
+}

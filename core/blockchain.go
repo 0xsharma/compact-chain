@@ -8,6 +8,7 @@ import (
 	"github.com/0xsharma/compact-chain/consensus"
 	"github.com/0xsharma/compact-chain/consensus/pow"
 	"github.com/0xsharma/compact-chain/dbstore"
+	"github.com/0xsharma/compact-chain/rpc"
 	"github.com/0xsharma/compact-chain/txpool"
 	"github.com/0xsharma/compact-chain/types"
 	"github.com/0xsharma/compact-chain/util"
@@ -20,7 +21,8 @@ type Blockchain struct {
 	LastHash  *util.Hash
 	Db        *dbstore.DB
 	StateDB   *dbstore.DB
-	txpool    *txpool.TxPool
+	Txpool    *txpool.TxPool
+	RPCServer *rpc.RPCServer
 }
 
 // defaultConsensusDifficulty is the default difficulty for the proof of work consensus.
@@ -83,7 +85,13 @@ func NewBlockchain(c *config.Config) *Blockchain {
 
 	bc_txpool := txpool.NewTxPool(c.MinFee)
 
-	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), Db: db, LastHash: lastBlock.Hash, StateDB: stateDB, txpool: bc_txpool}
+	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), Db: db, LastHash: lastBlock.Hash, StateDB: stateDB, Txpool: bc_txpool}
+
+	rpcDomains := &rpc.RPCDomains{
+		TxPool: bc.Txpool,
+	}
+
+	bc.RPCServer = rpc.NewRPCServer(c.RPCPort, rpcDomains)
 
 	return bc
 }

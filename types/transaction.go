@@ -7,6 +7,12 @@ import (
 	"github.com/0xsharma/compact-chain/util"
 )
 
+type Transactions []*Transaction
+
+func (txs Transactions) Array() []*Transaction {
+	return txs
+}
+
 type Transaction struct {
 	From  util.Address
 	To    util.Address
