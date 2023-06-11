@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - "master"
+      - "main"
+  pull_request:
+    branches:
+      - "**"
+    types: [opened, synchronize]
+
+jobs:
+  tests:
+    if: (github.event.action != 'closed' || github.event.pull_request.merged == true)
+    strategy:
+      matrix:
+        os: [ ubuntu-20.04 ] # list of os: https://github.com/actions/virtual-environments
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+      - uses: actions/checkout@v3
+
+      - name: Golang-ci install
+        if: runner.os == 'Linux'
+        run: make lintci-deps
+
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: make lint
+
+      - name: Test
+        run: make test
