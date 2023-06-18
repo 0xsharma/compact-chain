@@ -46,6 +46,7 @@ func (txp *TxPool) IsValid(tx *types.Transaction) bool {
 
 	from := tx.From
 	balance, err := txp.State.Get(dbstore.PrefixKey(dbstore.BalanceKey, from.String()))
+
 	if err != nil {
 		return false
 	}
@@ -60,6 +61,7 @@ func (txp *TxPool) IsValid(tx *types.Transaction) bool {
 	}
 
 	var nonceBig *big.Int
+
 	nonce, err := txp.State.Get(dbstore.PrefixKey(dbstore.NonceKey, from.String()))
 	if err != nil {
 		nonceBig = big.NewInt(0)
@@ -88,7 +90,7 @@ func (tp *TxPool) AddTx(tx *types.Transaction) {
 }
 
 func (tp *TxPool) AddTxs(txs []*types.Transaction) {
-	validTxs := make([]*types.Transaction, len(txs))
+	validTxs := make([]*types.Transaction, 0, len(txs))
 
 	for _, tx := range txs {
 		if tp.IsValid(tx) {

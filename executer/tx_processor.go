@@ -30,6 +30,7 @@ func NewTxProcessor(state *dbstore.DB, minFee *big.Int, signer *util.Address) *T
 func (txp *TxProcessor) IsValid(tx *types.Transaction) bool {
 	from := tx.From
 	balance, err := txp.State.Get(dbstore.PrefixKey(dbstore.BalanceKey, from.String()))
+
 	if err != nil {
 		return false
 	}
@@ -44,6 +45,7 @@ func (txp *TxProcessor) IsValid(tx *types.Transaction) bool {
 	}
 
 	var nonceBig *big.Int
+
 	nonce, err := txp.State.Get(dbstore.PrefixKey(dbstore.NonceKey, from.String()))
 	if err != nil {
 		nonceBig = big.NewInt(0)
@@ -75,6 +77,7 @@ func (txp *TxProcessor) ProcessTx(tx *types.Transaction) error {
 	if err != nil {
 		return err
 	}
+
 	sendBalanceBig := new(big.Int).SetBytes(senderBalance)
 
 	// Get receiver balance.
@@ -82,6 +85,7 @@ func (txp *TxProcessor) ProcessTx(tx *types.Transaction) error {
 	if err != nil {
 		return err
 	}
+
 	receiverBalanceBig := new(big.Int).SetBytes(receiverBalance)
 
 	// Update sender balance.
@@ -97,6 +101,7 @@ func (txp *TxProcessor) ProcessTx(tx *types.Transaction) error {
 	if err != nil {
 		return err
 	}
+
 	nonceBig := new(big.Int).SetBytes(nonce)
 	nonceBig.Add(nonceBig, big.NewInt(1))
 	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.NonceKey, from.String())), nonceBig.Bytes())

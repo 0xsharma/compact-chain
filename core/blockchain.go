@@ -94,6 +94,7 @@ func NewBlockchain(c *config.Config) *Blockchain {
 	rpcServer := rpc.NewRPCServer(c.RPCPort, rpcDomains)
 
 	var txProcessor *executer.TxProcessor
+
 	if c.Mine && c.SignerPrivateKey != nil {
 		p := c.SignerPrivateKey.PublicKey
 		txProcessor = executer.NewTxProcessor(stateDB, c.MinFee, util.PublicKeyToAddress(&p))
