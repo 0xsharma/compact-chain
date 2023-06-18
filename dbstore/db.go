@@ -8,6 +8,8 @@ const (
 	LastHashKey    = "lh" // Last hash key ( lastHash -> hash)
 	HashesKey      = "hs" // Hashes key (hash->block)
 	BlockNumberKey = "bn" // Block number key (blockNumber -> hash)
+	BalanceKey     = "bl" // Balance key (address -> balance)
+	NonceKey       = "nc" // Nonce key (address -> nonce)
 )
 
 // PrefixKey prefixes a string with another string.

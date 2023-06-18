@@ -8,6 +8,7 @@ import (
 	"github.com/0xsharma/compact-chain/consensus"
 	"github.com/0xsharma/compact-chain/consensus/pow"
 	"github.com/0xsharma/compact-chain/dbstore"
+	"github.com/0xsharma/compact-chain/executer"
 	"github.com/0xsharma/compact-chain/rpc"
 	"github.com/0xsharma/compact-chain/txpool"
 	"github.com/0xsharma/compact-chain/types"
@@ -15,14 +16,16 @@ import (
 )
 
 type Blockchain struct {
-	LastBlock *types.Block
-	Consensus consensus.Consensus
-	Mutex     *sync.RWMutex
-	LastHash  *util.Hash
-	Db        *dbstore.DB
-	StateDB   *dbstore.DB
-	Txpool    *txpool.TxPool
-	RPCServer *rpc.RPCServer
+	LastBlock   *types.Block
+	Consensus   consensus.Consensus
+	Mutex       *sync.RWMutex
+	LastHash    *util.Hash
+	Db          *dbstore.DB
+	StateDB     *dbstore.DB
+	Txpool      *txpool.TxPool
+	RPCServer   *rpc.RPCServer
+	TxProcessor *executer.TxProcessor
+	Signer      *util.Address
 }
 
 // defaultConsensusDifficulty is the default difficulty for the proof of work consensus.
@@ -83,15 +86,20 @@ func NewBlockchain(c *config.Config) *Blockchain {
 		panic("Invalid consensus algorithm")
 	}
 
-	bc_txpool := txpool.NewTxPool(c.MinFee)
-
-	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), Db: db, LastHash: lastBlock.Hash, StateDB: stateDB, Txpool: bc_txpool}
+	bc_txpool := txpool.NewTxPool(c.MinFee, stateDB)
 
 	rpcDomains := &rpc.RPCDomains{
-		TxPool: bc.Txpool,
+		TxPool: bc_txpool,
+	}
+	rpcServer := rpc.NewRPCServer(c.RPCPort, rpcDomains)
+
+	var txProcessor *executer.TxProcessor
+	if c.Mine && c.SignerPrivateKey != nil {
+		p := c.SignerPrivateKey.PublicKey
+		txProcessor = executer.NewTxProcessor(stateDB, c.MinFee, util.PublicKeyToAddress(&p))
 	}
 
-	bc.RPCServer = rpc.NewRPCServer(c.RPCPort, rpcDomains)
+	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), Db: db, LastHash: lastBlock.Hash, StateDB: stateDB, Txpool: bc_txpool, TxProcessor: txProcessor, RPCServer: rpcServer}
 
 	return bc
 }

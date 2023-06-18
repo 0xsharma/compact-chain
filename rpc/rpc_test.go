@@ -21,7 +21,7 @@ func TestTxpoolRPC(t *testing.T) {
 
 	rpcPort := ":1711"
 
-	txpool := txpool.NewTxPool(config.DefaultConfig().MinFee)
+	txpool := txpool.NewTxPool(config.DefaultConfig().MinFee, nil)
 	NewRPCServer(rpcPort, &RPCDomains{TxPool: txpool})
 	time.Sleep(2 * time.Second)
 
