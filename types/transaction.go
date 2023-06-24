@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/0xsharma/compact-chain/util"
+	"github.com/cbergoon/merkletree"
 )
 
 type Transactions []*Transaction
@@ -28,7 +29,27 @@ type Transaction struct {
 func (tx *Transaction) Hash() *util.Hash {
 	txHash := bytes.Join([][]byte{tx.From.Bytes(), tx.To.Bytes(), tx.Value.Bytes(), tx.Msg, tx.Fee.Bytes(), tx.Nonce.Bytes()}, []byte{})
 
-	return util.NewHash(txHash)
+	return util.HashData(txHash)
+}
+
+func (tx *Transaction) CalculateHash() ([]byte, error) {
+	return tx.Hash().Bytes(), nil
+}
+
+// Equals tests for equality of two Contents
+func (tx *Transaction) Equals(other merkletree.Content) (bool, error) {
+	OtherFrom := other.(*Transaction).From
+	OtherTo := other.(*Transaction).To
+	OtherValue := other.(*Transaction).Value.Bytes()
+	OtherMsg := other.(*Transaction).Msg
+	OtherFee := other.(*Transaction).Fee.Bytes()
+	OtherNonce := other.(*Transaction).Nonce.Bytes()
+	OtherR := other.(*Transaction).R.Bytes()
+	OtherS := other.(*Transaction).S.Bytes()
+
+	out := tx.From == OtherFrom && tx.To == OtherTo && bytes.Equal(tx.Value.Bytes(), OtherValue) && bytes.Equal(tx.Msg, OtherMsg) && bytes.Equal(tx.Fee.Bytes(), OtherFee) && bytes.Equal(tx.Nonce.Bytes(), OtherNonce) && bytes.Equal(tx.R.Bytes(), OtherR) && bytes.Equal(tx.S.Bytes(), OtherS)
+
+	return out, nil
 }
 
 func (tx *Transaction) Serialize() []byte {

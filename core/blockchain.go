@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -47,8 +48,8 @@ func NewBlockchain(c *config.Config) *Blockchain {
 
 	lastBlockBytes, err := db.Get(dbstore.LastHashKey)
 	if err != nil {
-		genesis = CreateGenesisBlock()
-		lastHash := genesis.Hash
+		genesis = CreateGenesisBlock(c.BalanceAlloc, stateDB)
+		lastHash := genesis.DeriveHash()
 
 		dbBatch := db.NewBatch()
 
@@ -73,14 +74,21 @@ func NewBlockchain(c *config.Config) *Blockchain {
 		lastBlock = types.DeserializeBlock(lastBlockBytes)
 	}
 
+	var txProcessor *executer.TxProcessor
+
+	if c.Mine && c.SignerPrivateKey != nil {
+		p := c.SignerPrivateKey.PublicKey
+		txProcessor = executer.NewTxProcessor(stateDB, c.MinFee, util.PublicKeyToAddress(&p))
+	}
+
 	var consensus consensus.Consensus
 
 	switch c.ConsensusName {
 	case "pow":
 		if c.ConsensusDifficulty > 0 {
-			consensus = pow.NewPOW(c.ConsensusDifficulty)
+			consensus = pow.NewPOW(c.ConsensusDifficulty, txProcessor)
 		} else {
-			consensus = pow.NewPOW(defaultConsensusDifficulty)
+			consensus = pow.NewPOW(defaultConsensusDifficulty, txProcessor)
 		}
 	default:
 		panic("Invalid consensus algorithm")
@@ -93,26 +101,21 @@ func NewBlockchain(c *config.Config) *Blockchain {
 	}
 	rpcServer := rpc.NewRPCServer(c.RPCPort, rpcDomains)
 
-	var txProcessor *executer.TxProcessor
-
-	if c.Mine && c.SignerPrivateKey != nil {
-		p := c.SignerPrivateKey.PublicKey
-		txProcessor = executer.NewTxProcessor(stateDB, c.MinFee, util.PublicKeyToAddress(&p))
-	}
-
-	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), Db: db, LastHash: lastBlock.Hash, StateDB: stateDB, Txpool: bc_txpool, TxProcessor: txProcessor, RPCServer: rpcServer}
+	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), Db: db, LastHash: lastBlock.DeriveHash(), StateDB: stateDB, Txpool: bc_txpool, TxProcessor: txProcessor, RPCServer: rpcServer}
 
 	return bc
 }
 
 // AddBlock mines and adds a new block to the blockchain.
-func (bc *Blockchain) AddBlock(data []byte) {
+func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction) {
 	bc.Mutex.Lock()
 	defer bc.Mutex.Unlock()
 
 	prevBlock := bc.LastBlock
 	blockNumber := big.NewInt(0).Add(prevBlock.Number, big.NewInt(1))
-	block := types.NewBlock(blockNumber, prevBlock.Hash, data)
+	block := types.NewBlock(blockNumber, prevBlock.DeriveHash(), data)
+
+	block.Transactions = txs
 
 	// Mine block
 	minedBlock := bc.Consensus.Mine(block)
@@ -120,9 +123,9 @@ func (bc *Blockchain) AddBlock(data []byte) {
 	dbBatch := bc.Db.NewBatch()
 
 	// Batch write to db
-	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.HashesKey, minedBlock.Hash.String())), minedBlock.Serialize())
-	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.BlockNumberKey, minedBlock.Number.String())), minedBlock.Hash.Bytes())
-	dbBatch.Put([]byte(dbstore.LastHashKey), minedBlock.Hash.Bytes())
+	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.HashesKey, minedBlock.DeriveHash().String())), minedBlock.Serialize())
+	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.BlockNumberKey, minedBlock.Number.String())), minedBlock.DeriveHash().Bytes())
+	dbBatch.Put([]byte(dbstore.LastHashKey), minedBlock.DeriveHash().Bytes())
 
 	// Commit batch to db
 	err := bc.Db.WriteBatch(dbBatch)
@@ -133,9 +136,23 @@ func (bc *Blockchain) AddBlock(data []byte) {
 	bc.LastBlock = minedBlock
 }
 
-// Mine the genesis block
-func CreateGenesisBlock() *types.Block {
-	genesis := types.NewBlock(big.NewInt(0), util.NewHash([]byte("0x0")), []byte("Genesis Block"))
+// Mine the genesis block and do initial balance allocation.
+func CreateGenesisBlock(balanceAlloc map[string]*big.Int, db *dbstore.DB) *types.Block {
+	genesis := types.NewBlock(big.NewInt(0), util.HashData([]byte("0x0")), []byte("Genesis Block"))
+
+	dbBatch := db.NewBatch()
+
+	for address, balance := range balanceAlloc {
+		fmt.Println("Allocating", balance, "to", address)
+		dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.BalanceKey, address)), balance.Bytes())
+	}
+
+	// Commit batch to db
+	err := db.WriteBatch(dbBatch)
+	if err != nil {
+		panic(err)
+	}
+
 	return genesis
 }
 
@@ -154,7 +171,7 @@ func (bc *Blockchain) GetBlockByNumber(b *big.Int) (*types.Block, error) {
 		return nil, err
 	}
 
-	hash := util.NewHash(hashBytes)
+	hash := util.HashData(hashBytes)
 	block, err := bc.GetBlockByHash(hash)
 
 	if err != nil {

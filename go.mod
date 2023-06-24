@@ -3,6 +3,7 @@ module github.com/0xsharma/compact-chain
 go 1.19
 
 require (
+	github.com/cbergoon/merkletree v0.2.0
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.2
 	github.com/syndtr/goleveldb v1.0.0

@@ -24,7 +24,11 @@ func (ua *UnlockedAccount) PublicKey() *ecdsa.PublicKey {
 
 func PublicKeyToAddress(pubkey *ecdsa.PublicKey) *Address {
 	data := elliptic.Marshal(pubkey, pubkey.X, pubkey.Y)
-	return NewAddress(data)
+
+	address := Address{}
+	copy(address[:], data[2:])
+
+	return &address
 }
 
 func (ua *UnlockedAccount) Address() *Address {

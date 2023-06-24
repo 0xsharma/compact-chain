@@ -8,6 +8,7 @@ import (
 
 	"github.com/0xsharma/compact-chain/config"
 	"github.com/0xsharma/compact-chain/core"
+	"github.com/0xsharma/compact-chain/types"
 	"github.com/spf13/cobra"
 )
 
@@ -57,20 +58,21 @@ func demoBlockchain() {
 		StateDBDir:          stateDbPath,
 		MinFee:              big.NewInt(100),
 		RPCPort:             ":6999",
+		BalanceAlloc:        map[string]*big.Int{},
 	}
 
 	chain := core.NewBlockchain(config)
 	if chain.LastBlock.Number.Int64() == 0 {
-		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.Hash.String())
+		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.DeriveHash().String())
 	} else {
-		fmt.Println("LastNumber : ", chain.LastBlock.Number, "LastHash : ", chain.LastBlock.Hash.String())
+		fmt.Println("LastNumber : ", chain.LastBlock.Number, "LastHash : ", chain.LastBlock.DeriveHash().String())
 	}
 
 	lastNumber := chain.LastBlock.Number
 
 	for i := lastNumber.Int64() + 1; i <= lastNumber.Int64()+10; i++ {
 		time.Sleep(2 * time.Second)
-		chain.AddBlock([]byte(fmt.Sprintf("Block %d", i)))
-		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.Hash.String())
+		chain.AddBlock([]byte(fmt.Sprintf("Block %d", i)), []*types.Transaction{})
+		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.DeriveHash().String())
 	}
 }

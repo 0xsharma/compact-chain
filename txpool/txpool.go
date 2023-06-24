@@ -45,8 +45,8 @@ func (txp *TxPool) IsValid(tx *types.Transaction) bool {
 	}
 
 	from := tx.From
-	balance, err := txp.State.Get(dbstore.PrefixKey(dbstore.BalanceKey, from.String()))
 
+	balance, err := txp.State.Get(dbstore.PrefixKey(dbstore.BalanceKey, from.String()))
 	if err != nil {
 		return false
 	}
@@ -56,22 +56,25 @@ func (txp *TxPool) IsValid(tx *types.Transaction) bool {
 	// Add Fee to Value
 	totalValue := big.NewInt(0).Add(tx.Value, tx.Fee)
 
+	// nolint : gosimple
 	if balanceBig.Cmp(totalValue) < 0 {
 		return false
 	}
 
-	var nonceBig *big.Int
+	// TODO : Write nonce logic in txpool and enable this check
 
-	nonce, err := txp.State.Get(dbstore.PrefixKey(dbstore.NonceKey, from.String()))
-	if err != nil {
-		nonceBig = big.NewInt(0)
-	} else {
-		nonceBig = new(big.Int).SetBytes(nonce)
-	}
+	// var nonceBig *big.Int
 
-	if big.NewInt(0).Sub(tx.Nonce, nonceBig).Cmp(big.NewInt(1)) != 0 {
-		return false
-	}
+	// nonce, err := txp.State.Get(dbstore.PrefixKey(dbstore.NonceKey, from.String()))
+	// if err != nil {
+	// 	nonceBig = big.NewInt(-1)
+	// } else {
+	// 	nonceBig = new(big.Int).SetBytes(nonce)
+	// }
+
+	// if big.NewInt(0).Sub(tx.Nonce, nonceBig).Cmp(big.NewInt(1)) != 0 {
+	// 	return false
+	// }
 
 	return true
 }

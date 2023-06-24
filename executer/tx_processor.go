@@ -48,7 +48,7 @@ func (txp *TxProcessor) IsValid(tx *types.Transaction) bool {
 
 	nonce, err := txp.State.Get(dbstore.PrefixKey(dbstore.NonceKey, from.String()))
 	if err != nil {
-		nonceBig = big.NewInt(0)
+		nonceBig = big.NewInt(-1)
 	} else {
 		nonceBig = new(big.Int).SetBytes(nonce)
 	}
@@ -81,12 +81,15 @@ func (txp *TxProcessor) ProcessTx(tx *types.Transaction) error {
 	sendBalanceBig := new(big.Int).SetBytes(senderBalance)
 
 	// Get receiver balance.
+	var receiverBalanceBig *big.Int
+
 	receiverBalance, err := txp.State.Get(dbstore.PrefixKey(dbstore.BalanceKey, to.String()))
 	if err != nil {
-		return err
-	}
+		receiverBalanceBig = big.NewInt(0)
+	} else {
+		receiverBalanceBig = new(big.Int).SetBytes(receiverBalance)
 
-	receiverBalanceBig := new(big.Int).SetBytes(receiverBalance)
+	}
 
 	// Update sender balance.
 	sendBalanceBig.Sub(sendBalanceBig, value)
@@ -97,17 +100,32 @@ func (txp *TxProcessor) ProcessTx(tx *types.Transaction) error {
 	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.BalanceKey, to.String())), receiverBalanceBig.Bytes())
 
 	// Update sender nonce.
+	var nonceBig *big.Int
+
 	nonce, err := txp.State.Get(dbstore.PrefixKey(dbstore.NonceKey, from.String()))
 	if err != nil {
-		return err
+		nonceBig = big.NewInt(-1)
+	} else {
+		nonceBig = new(big.Int).SetBytes(nonce)
 	}
 
-	nonceBig := new(big.Int).SetBytes(nonce)
 	nonceBig.Add(nonceBig, big.NewInt(1))
 	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.NonceKey, from.String())), nonceBig.Bytes())
 
+	// Get Miner balance.
+	var minerBalanceBig *big.Int
+
+	minerBalance, err := txp.State.Get(dbstore.PrefixKey(dbstore.BalanceKey, txp.Signer.String()))
+	if err != nil {
+		minerBalanceBig = big.NewInt(0)
+	} else {
+		minerBalanceBig = new(big.Int).SetBytes(minerBalance)
+
+	}
+
 	// Update Miner Fee.
-	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.BalanceKey, txp.Signer.String())), tx.Fee.Bytes())
+	minerBalanceBig.Add(minerBalanceBig, tx.Fee)
+	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.BalanceKey, txp.Signer.String())), minerBalanceBig.Bytes())
 
 	// Commit batch to db
 	err = txp.State.WriteBatch(dbBatch)
