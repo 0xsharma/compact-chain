@@ -20,13 +20,16 @@ func TestTxpoolRPC(t *testing.T) {
 	t.Parallel()
 
 	rpcPort := ":1711"
+	pkey := util.HexToPrivateKey("c3fc038a9abc0f483e2e1f8a0b4db676bce3eaebd7d9afc68e1e7e28ca8738a6")
+	ua := util.NewUnlockedAccount(pkey)
 
-	txpool := txpool.NewTxPool(config.DefaultConfig().MinFee)
+	txpool := txpool.NewTxPool(config.DefaultConfig().MinFee, nil)
 	NewRPCServer(rpcPort, &RPCDomains{TxPool: txpool})
 	time.Sleep(2 * time.Second)
 
 	// Send add Transacation request 1
-	tx1 := newTransaction(t, []byte{0x01}, []byte{0x02}, "hello", 100, 100)
+	tx1 := newTransaction(t, []byte{0x01}, []byte{0x02}, "hello", 100, 100, 0)
+	tx1.Sign(ua)
 
 	res, err := SendRpcRequest(t, "TxPool.AddTx_RPC", tx1, rpcPort)
 	if err != nil {
@@ -38,7 +41,7 @@ func TestTxpoolRPC(t *testing.T) {
 	}
 
 	// Send add Transacation request 2
-	tx2 := newTransaction(t, []byte{0x02}, []byte{0x03}, "hello1", 101, 101)
+	tx2 := newTransaction(t, []byte{0x02}, []byte{0x03}, "hello1", 101, 101, 1)
 
 	res, err = SendRpcRequest(t, "TxPool.AddTx_RPC", tx2, rpcPort)
 	if err != nil {
@@ -92,14 +95,15 @@ func SendRpcRequest(t *testing.T, method string, params interface{}, addr string
 	return reply, nil
 }
 
-func newTransaction(t *testing.T, from, to []byte, msg string, fee, value int64) *types.Transaction {
+func newTransaction(t *testing.T, from, to []byte, msg string, fee, value int64, nonce int64) *types.Transaction {
 	t.Helper()
 
 	return &types.Transaction{
-		From:  *util.NewAddress(from),
-		To:    *util.NewAddress(to),
+		From:  *util.BytesToAddress(from),
+		To:    *util.BytesToAddress(to),
 		Msg:   []byte(msg),
 		Fee:   big.NewInt(fee),
 		Value: big.NewInt(value),
+		Nonce: big.NewInt(nonce),
 	}
 }

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/ecdsa"
 	"math/big"
 	"os"
 )
@@ -19,6 +20,9 @@ type Config struct {
 	StateDBDir          string
 	MinFee              *big.Int
 	RPCPort             string
+	SignerPrivateKey    *ecdsa.PrivateKey
+	Mine                bool
+	BalanceAlloc        map[string]*big.Int
 }
 
 func DefaultConfig() *Config {

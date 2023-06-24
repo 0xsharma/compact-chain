@@ -47,7 +47,7 @@ func ByteToHash(b []byte) *Hash {
 }
 
 // NewHash creates a new sha256 hash from the given byte array.
-func NewHash(b []byte) *Hash {
+func HashData(b []byte) *Hash {
 	sum := sha256.Sum256(b)
 
 	hash := Hash{}
@@ -57,11 +57,9 @@ func NewHash(b []byte) *Hash {
 }
 
 // NewAddress creates a new address from the given byte array.
-func NewAddress(b []byte) *Address {
-	sum := sha256.Sum256(b)
-
+func BytesToAddress(b []byte) *Address {
 	address := Address{}
-	copy(address[:], sum[:])
+	copy(address[:], b[:])
 
 	return &address
 }

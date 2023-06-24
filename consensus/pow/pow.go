@@ -1,19 +1,23 @@
 package pow
 
 import (
+	"fmt"
 	"math/big"
 
+	"github.com/0xsharma/compact-chain/executer"
 	"github.com/0xsharma/compact-chain/types"
 )
 
 type POW struct {
-	difficulty *big.Int
+	difficulty  *big.Int
+	TxProcessor *executer.TxProcessor
 }
 
 // NewPOW creates a new proof of work consensus.
-func NewPOW(difficulty int) *POW {
+func NewPOW(difficulty int, txProcessor *executer.TxProcessor) *POW {
 	return &POW{
-		difficulty: big.NewInt(int64(difficulty)),
+		difficulty:  big.NewInt(int64(difficulty)),
+		TxProcessor: txProcessor,
 	}
 }
 
@@ -37,6 +41,23 @@ func (c *POW) GetTarget() *big.Int {
 func (c *POW) Mine(b *types.Block) *types.Block {
 	nonce := big.NewInt(0)
 
+	validTxs := []*types.Transaction{}
+
+	for _, tx := range b.Transactions {
+		if c.TxProcessor.IsValid(tx) {
+			err := c.TxProcessor.ProcessTx(tx)
+			if err == nil {
+				validTxs = append(validTxs, tx)
+			} else {
+				fmt.Println("Failed to execute Tx :", "tx :", tx, "error", err)
+			}
+		} else {
+			fmt.Println("Invalid Tx :", "tx :", tx)
+		}
+	}
+
+	b.Transactions = validTxs
+
 	for {
 		b.SetNonce(nonce)
 		hash := b.DeriveHash()
@@ -45,7 +66,6 @@ func (c *POW) Mine(b *types.Block) *types.Block {
 		hashBig := new(big.Int).SetBytes(hashBytes)
 
 		if hashBig.Cmp(c.GetTarget()) < 0 {
-			b.SetHash(hash)
 			break
 		}
 

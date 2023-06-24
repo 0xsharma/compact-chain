@@ -6,15 +6,17 @@ import (
 	"math/big"
 
 	"github.com/0xsharma/compact-chain/util"
+	"github.com/cbergoon/merkletree"
 )
 
 // Block is the basic unit of the blockchain.
 type Block struct {
-	Number     *big.Int
-	Hash       *util.Hash
-	ParentHash *util.Hash
-	Data       []byte
-	Nonce      *big.Int
+	Number       *big.Int
+	ParentHash   *util.Hash
+	ExtraData    []byte
+	Nonce        *big.Int
+	Transactions []*Transaction
+	TxRoot       *util.Hash
 }
 
 // NewBlock creates a new block and sets the hash.
@@ -22,11 +24,9 @@ func NewBlock(number *big.Int, parentHash *util.Hash, data []byte) *Block {
 	block := &Block{
 		Number:     number,
 		ParentHash: parentHash,
-		Data:       data,
+		ExtraData:  data,
 		Nonce:      big.NewInt(0),
 	}
-
-	block.Hash = block.DeriveHash()
 
 	return block
 }
@@ -34,27 +34,40 @@ func NewBlock(number *big.Int, parentHash *util.Hash, data []byte) *Block {
 // Clone returns a duplicate block from the source block.
 func (dst *Block) Clone(src *Block) {
 	dst.Number = src.Number
-	dst.Hash = src.Hash
 	dst.ParentHash = src.ParentHash
-	dst.Data = src.Data
+	dst.ExtraData = src.ExtraData
 	dst.Nonce = src.Nonce
 }
 
 // DeriveHash derives the hash of the block.
 func (b *Block) DeriveHash() *util.Hash {
-	blockHash := bytes.Join([][]byte{b.Number.Bytes(), b.ParentHash.Bytes(), b.Data, b.Nonce.Bytes()}, []byte{})
+	blockHash := bytes.Join([][]byte{b.Number.Bytes(), b.ParentHash.Bytes(), b.ExtraData, b.Nonce.Bytes(), b.TxRootHash().Bytes()}, []byte{})
 
-	return util.NewHash(blockHash)
+	return util.HashData(blockHash)
+}
+
+func (b *Block) TxRootHash() *util.Hash {
+	if len(b.Transactions) == 0 {
+		return util.HashData([]byte{})
+	} else {
+		var list []merkletree.Content
+		for _, tx := range b.Transactions {
+			list = append(list, tx)
+		}
+
+		//Create a new Merkle Tree from the list of Content
+		t, err := merkletree.NewTree(list)
+		if err != nil {
+			panic(err)
+		}
+		mr := t.MerkleRoot()
+		return util.ByteToHash(mr)
+	}
 }
 
 // SetNonce sets the nonce of the block.
 func (b *Block) SetNonce(n *big.Int) {
 	b.Nonce = n
-}
-
-// SetHash sets the hash of the block.
-func (b *Block) SetHash(h *util.Hash) {
-	b.Hash = h
 }
 
 // Serialize serializes the block object into bytes.
