@@ -57,8 +57,10 @@ func demoBlockchain() {
 		DBDir:               dbPath,
 		StateDBDir:          stateDbPath,
 		MinFee:              big.NewInt(100),
-		RPCPort:             ":6999",
+		RPCPort:             ":1711",
 		BalanceAlloc:        map[string]*big.Int{},
+		P2PPort:             ":6060",
+		Peers:               []string{"localhost:6061"},
 	}
 
 	chain := core.NewBlockchain(config)

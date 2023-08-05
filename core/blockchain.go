@@ -10,6 +10,7 @@ import (
 	"github.com/0xsharma/compact-chain/consensus/pow"
 	"github.com/0xsharma/compact-chain/dbstore"
 	"github.com/0xsharma/compact-chain/executer"
+	"github.com/0xsharma/compact-chain/p2p"
 	"github.com/0xsharma/compact-chain/rpc"
 	"github.com/0xsharma/compact-chain/txpool"
 	"github.com/0xsharma/compact-chain/types"
@@ -17,16 +18,16 @@ import (
 )
 
 type Blockchain struct {
-	LastBlock   *types.Block
-	Consensus   consensus.Consensus
-	Mutex       *sync.RWMutex
-	LastHash    *util.Hash
-	Db          *dbstore.DB
-	StateDB     *dbstore.DB
-	Txpool      *txpool.TxPool
-	RPCServer   *rpc.RPCServer
-	TxProcessor *executer.TxProcessor
-	Signer      *util.Address
+	LastBlock    *types.Block
+	Consensus    consensus.Consensus
+	Mutex        *sync.RWMutex
+	LastHash     *util.Hash
+	BlockchainDb *dbstore.BlockchainDB
+	StateDB      *dbstore.StateDB
+	Txpool       *txpool.TxPool
+	RPCServer    *rpc.RPCServer
+	TxProcessor  *executer.TxProcessor
+	Signer       *util.Address
 }
 
 // defaultConsensusDifficulty is the default difficulty for the proof of work consensus.
@@ -34,24 +35,28 @@ var defaultConsensusDifficulty = 10
 
 // NewBlockchain creates a new blockchain with the given config.
 func NewBlockchain(c *config.Config) *Blockchain {
-	db, err := dbstore.NewDB(c.DBDir)
+	dbInstance, err := dbstore.NewDBInstance(c.DBDir)
 	if err != nil {
 		panic(err)
 	}
 
-	stateDB, err := dbstore.NewDB(c.StateDBDir)
+	blockchainDB := dbstore.NewBlockchainDB(dbInstance)
+
+	stateDBInstance, err := dbstore.NewDBInstance(c.StateDBDir)
 	if err != nil {
 		panic(err)
 	}
+
+	stateDB := dbstore.NewStateDB(stateDBInstance)
 
 	var genesis, lastBlock *types.Block
 
-	lastBlockBytes, err := db.Get(dbstore.LastHashKey)
+	lastBlockHashBytes, err := blockchainDB.DB.Get(dbstore.LastHashKey)
 	if err != nil {
-		genesis = CreateGenesisBlock(c.BalanceAlloc, stateDB)
+		genesis = CreateGenesisBlock(c.BalanceAlloc, stateDB.DB)
 		lastHash := genesis.DeriveHash()
 
-		dbBatch := db.NewBatch()
+		dbBatch := blockchainDB.DB.NewBatch()
 
 		// Batch write to db
 		dbBatch.Put([]byte(dbstore.LastHashKey), lastHash.Bytes())
@@ -59,15 +64,15 @@ func NewBlockchain(c *config.Config) *Blockchain {
 		dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.BlockNumberKey, genesis.Number.String())), lastHash.Bytes())
 
 		// Commit batch to db
-		err = db.WriteBatch(dbBatch)
+		err = blockchainDB.DB.WriteBatch(dbBatch)
 		if err != nil {
 			panic(err)
 		}
 
 		lastBlock = genesis
 	} else {
-		lastHash := util.ByteToHash(lastBlockBytes)
-		lastBlockBytes, err = db.Get(dbstore.PrefixKey(dbstore.HashesKey, lastHash.String()))
+		lastHash := util.ByteToHash(lastBlockHashBytes)
+		lastBlockBytes, err := blockchainDB.DB.Get(dbstore.PrefixKey(dbstore.HashesKey, lastHash.String()))
 		if err != nil {
 			panic(err)
 		}
@@ -78,7 +83,7 @@ func NewBlockchain(c *config.Config) *Blockchain {
 
 	if c.Mine && c.SignerPrivateKey != nil {
 		p := c.SignerPrivateKey.PublicKey
-		txProcessor = executer.NewTxProcessor(stateDB, c.MinFee, util.PublicKeyToAddress(&p))
+		txProcessor = executer.NewTxProcessor(stateDB.DB, c.MinFee, util.PublicKeyToAddress(&p))
 	}
 
 	var consensus consensus.Consensus
@@ -94,14 +99,17 @@ func NewBlockchain(c *config.Config) *Blockchain {
 		panic("Invalid consensus algorithm")
 	}
 
-	bc_txpool := txpool.NewTxPool(c.MinFee, stateDB)
+	bc_txpool := txpool.NewTxPool(c.MinFee, stateDB.DB)
 
 	rpcDomains := &rpc.RPCDomains{
 		TxPool: bc_txpool,
 	}
 	rpcServer := rpc.NewRPCServer(c.RPCPort, rpcDomains)
 
-	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), Db: db, LastHash: lastBlock.DeriveHash(), StateDB: stateDB, Txpool: bc_txpool, TxProcessor: txProcessor, RPCServer: rpcServer}
+	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), BlockchainDb: blockchainDB, LastHash: lastBlock.DeriveHash(), StateDB: stateDB, Txpool: bc_txpool, TxProcessor: txProcessor, RPCServer: rpcServer}
+
+	p2pServer := p2p.NewServer(c.P2PPort, c.Peers, stateDB, blockchainDB, bc_txpool)
+	go p2pServer.StartServer()
 
 	return bc
 }
@@ -120,7 +128,7 @@ func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction) {
 	// Mine block
 	minedBlock := bc.Consensus.Mine(block)
 
-	dbBatch := bc.Db.NewBatch()
+	dbBatch := bc.BlockchainDb.DB.NewBatch()
 
 	// Batch write to db
 	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.HashesKey, minedBlock.DeriveHash().String())), minedBlock.Serialize())
@@ -128,7 +136,7 @@ func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction) {
 	dbBatch.Put([]byte(dbstore.LastHashKey), minedBlock.DeriveHash().Bytes())
 
 	// Commit batch to db
-	err := bc.Db.WriteBatch(dbBatch)
+	err := bc.BlockchainDb.DB.WriteBatch(dbBatch)
 	if err != nil {
 		panic(err)
 	}
@@ -166,7 +174,7 @@ func (bc *Blockchain) Current() *types.Block {
 
 // GetBlockByNumber returns the block with the given block number.
 func (bc *Blockchain) GetBlockByNumber(b *big.Int) (*types.Block, error) {
-	hashBytes, err := bc.Db.Get(dbstore.PrefixKey(dbstore.BlockNumberKey, b.String()))
+	hashBytes, err := bc.BlockchainDb.DB.Get(dbstore.PrefixKey(dbstore.BlockNumberKey, b.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +191,7 @@ func (bc *Blockchain) GetBlockByNumber(b *big.Int) (*types.Block, error) {
 
 // GetBlockByHash returns the block with the given block hash.
 func (bc *Blockchain) GetBlockByHash(h *util.Hash) (*types.Block, error) {
-	blockBytes, err := bc.Db.Get(dbstore.PrefixKey(dbstore.HashesKey, h.String()))
+	blockBytes, err := bc.BlockchainDb.DB.Get(dbstore.PrefixKey(dbstore.HashesKey, h.String()))
 	if err != nil {
 		return nil, err
 	}

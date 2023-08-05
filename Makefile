@@ -14,3 +14,11 @@ lintci-deps:
 
 test:
 	$(GOTEST) --timeout 5m -shuffle=on ./...
+
+devtools:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	@type "protoc" 2> /dev/null || echo '\n\nPlease install protoc\n Linux : apt install -y protobuf-compiler\n Mac : brew install protobuf\n Windows : choco install protoc\n'
+
+protoc:
+	protoc --go_out=. --go-grpc_out=. ./protos/*.proto

@@ -25,7 +25,7 @@ func TestBlockchainStateBalance(t *testing.T) {
 		DBDir:               t.TempDir(),
 		StateDBDir:          t.TempDir(),
 		MinFee:              big.NewInt(100),
-		RPCPort:             ":6999",
+		RPCPort:             ":1711",
 		BalanceAlloc: map[string]*big.Int{
 			"0xa52c981eee8687b5e4afd69aa5006548c24d7685": big.NewInt(1000000000000000000), // Allocating funds to 0xa52c981eee8687b5e4afd69aa5006548c24d7685
 		},
@@ -67,7 +67,7 @@ func TestBlockchainStateBalance(t *testing.T) {
 	fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.DeriveHash().String(), "TxCount", len(chain.LastBlock.Transactions))
 
 	// Assertions
-	balanceSender, err := chain.StateDB.Get(dbstore.PrefixKey(dbstore.BalanceKey, ua.Address().String()))
+	balanceSender, err := chain.StateDB.DB.Get(dbstore.PrefixKey(dbstore.BalanceKey, ua.Address().String()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestBlockchainStateBalance(t *testing.T) {
 	balanceSenderBig := new(big.Int).SetBytes(balanceSender)
 	assert.Equal(t, big.NewInt(999999999999997000), balanceSenderBig)
 
-	balanceTo1, err := chain.StateDB.Get(dbstore.PrefixKey(dbstore.BalanceKey, to1.String()))
+	balanceTo1, err := chain.StateDB.DB.Get(dbstore.PrefixKey(dbstore.BalanceKey, to1.String()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestBlockchainStateBalance(t *testing.T) {
 	balanceTo1Big := new(big.Int).SetBytes(balanceTo1)
 	assert.Equal(t, big.NewInt(1000), balanceTo1Big)
 
-	balanceTo2, err := chain.StateDB.Get(dbstore.PrefixKey(dbstore.BalanceKey, to2.String()))
+	balanceTo2, err := chain.StateDB.DB.Get(dbstore.PrefixKey(dbstore.BalanceKey, to2.String()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestBlockchainStateBalance(t *testing.T) {
 
 	addressMiner := util.NewUnlockedAccount(config.SignerPrivateKey)
 
-	balanceMiner, err := chain.StateDB.Get(dbstore.PrefixKey(dbstore.BalanceKey, addressMiner.Address().String()))
+	balanceMiner, err := chain.StateDB.DB.Get(dbstore.PrefixKey(dbstore.BalanceKey, addressMiner.Address().String()))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -24,7 +24,7 @@ type DB struct {
 }
 
 // NewDB creates a new DB instance.
-func NewDB(dbPath string) (*DB, error) {
+func NewDBInstance(dbPath string) (*DB, error) {
 	db, err := leveldb.OpenFile(dbPath, nil)
 	if err != nil {
 		return nil, err

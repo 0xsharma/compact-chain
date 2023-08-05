@@ -23,6 +23,8 @@ type Config struct {
 	SignerPrivateKey    *ecdsa.PrivateKey
 	Mine                bool
 	BalanceAlloc        map[string]*big.Int
+	P2PPort             string
+	Peers               []string
 }
 
 func DefaultConfig() *Config {
@@ -33,6 +35,7 @@ func DefaultConfig() *Config {
 		StateDBDir:          stateDbPath,
 		MinFee:              big.NewInt(100),
 		RPCPort:             ":1711",
+		P2PPort:             ":6060",
 	}
 
 	return cfg
