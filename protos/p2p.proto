@@ -6,6 +6,7 @@ option go_package = "/protos";
 service P2P {
     rpc LatestBlock(LatestBlockRequest) returns (LatestBlockResponse);
     rpc TxPoolPending(TxpoolPendingRequest) returns (TxpoolPendingResponse);
+    rpc BlocksInRange(BlocksInRangeRequest) returns (BlocksInRangeResponse);
 }
 
 message LatestBlockRequest{
@@ -21,4 +22,13 @@ message TxpoolPendingRequest{
 
 message TxpoolPendingResponse{
     repeated bytes encodedTxs = 1;
+}
+
+message BlocksInRangeRequest{
+    uint64 startHeight = 1;
+    uint64 endHeight = 2;
+}
+
+message BlocksInRangeResponse{
+    repeated bytes encodedBlocks = 1;
 }

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -13,9 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// nolint : tparallel
 func TestBlockchainStateBalance(t *testing.T) {
-	t.Parallel()
-
 	to1 := util.BytesToAddress([]byte{0x01})
 	to2 := util.BytesToAddress([]byte{0x02})
 
@@ -29,6 +29,7 @@ func TestBlockchainStateBalance(t *testing.T) {
 		BalanceAlloc: map[string]*big.Int{
 			"0xa52c981eee8687b5e4afd69aa5006548c24d7685": big.NewInt(1000000000000000000), // Allocating funds to 0xa52c981eee8687b5e4afd69aa5006548c24d7685
 		},
+		P2PPort:          ":6060",
 		Mine:             true,
 		SignerPrivateKey: util.HexToPrivateKey("e3ddd0f483e2ef1f8a0b4db676bce3eaebd7d9afc68e1e7e28ca8738a6"), // Address = 0x93a63fc45341fc02ac9cce62cc5aeb5c5799403e
 	}
@@ -40,21 +41,26 @@ func TestBlockchainStateBalance(t *testing.T) {
 		fmt.Println("LastNumber : ", chain.LastBlock.Number, "LastHash : ", chain.LastBlock.DeriveHash().String())
 	}
 
+	defer func() {
+		chain.RPCServer.HttpServer.Shutdown(context.Background())
+		chain.P2PServer.GRPCSrv.Stop()
+	}()
+
 	pkey := util.HexToPrivateKey("c3fc038a9abc0f483e2e1f8a0b4db676bce3eaebd7d9afc68e1e7e28ca8738a6") // Address = 0xa52c981eee8687b5e4afd69aa5006548c24d7685
 	ua := util.NewUnlockedAccount(pkey)
 
 	// tx1
-	tx1 := newTransaction(t, ua.Address().Bytes(), to1.Bytes(), "hello", 200, 1000, 0)
+	tx1 := newTransaction(t, ua.Address().Bytes(), to1.Bytes(), "hello1", 200, 1000, 0)
 	tx1.Sign(ua)
 
 	// tx2
-	tx2 := newTransaction(t, ua.Address().Bytes(), to2.Bytes(), "hello", 100, 2000, 1)
+	tx2 := newTransaction(t, ua.Address().Bytes(), to2.Bytes(), "hello2", 100, 2000, 1)
 	tx2.Sign(ua)
 
 	// Add tx1 and tx2 to txpool
 	chain.Txpool.AddTxs([]*types.Transaction{tx1, tx2})
 
-	// Add block 1
+	// Add block 1 with empty txSet
 	time.Sleep(2 * time.Second)
 	chain.AddBlock([]byte(fmt.Sprintf("Block %d", chain.LastBlock.Number.Int64()+1)), []*types.Transaction{})
 

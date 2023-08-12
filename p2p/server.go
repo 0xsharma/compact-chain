@@ -80,6 +80,26 @@ func (p2psrv *P2PServer) LatestBlock(ctx context.Context, in *protos.LatestBlock
 	return out, nil
 }
 
+func (p2psrv *P2PServer) BlocksInRange(ctx context.Context, in *protos.BlocksInRangeRequest) (*protos.BlocksInRangeResponse, error) {
+	total := in.EndHeight - in.StartHeight + 1
+	enBlocks := make([][]byte, total)
+
+	blocks, err := p2psrv.BlockchainDB.GetBlocksInRange(uint(in.StartHeight), uint(in.EndHeight))
+	if err != nil {
+		return nil, err
+	}
+
+	for i, block := range blocks {
+		enBlocks[i] = block.Serialize()
+	}
+
+	out := &protos.BlocksInRangeResponse{
+		EncodedBlocks: enBlocks,
+	}
+
+	return out, nil
+}
+
 func (p2psrv *P2PServer) TxPoolPending(ctx context.Context, in *protos.TxpoolPendingRequest) (*protos.TxpoolPendingResponse, error) {
 	pending := p2psrv.Txpool.Transactions
 	serialisedTxs := make([][]byte, len(pending))

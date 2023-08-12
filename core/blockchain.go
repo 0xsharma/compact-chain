@@ -28,6 +28,7 @@ type Blockchain struct {
 	RPCServer    *rpc.RPCServer
 	TxProcessor  *executer.TxProcessor
 	Signer       *util.Address
+	P2PServer    *p2p.P2PServer
 }
 
 // defaultConsensusDifficulty is the default difficulty for the proof of work consensus.
@@ -106,10 +107,10 @@ func NewBlockchain(c *config.Config) *Blockchain {
 	}
 	rpcServer := rpc.NewRPCServer(c.RPCPort, rpcDomains)
 
-	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), BlockchainDb: blockchainDB, LastHash: lastBlock.DeriveHash(), StateDB: stateDB, Txpool: bc_txpool, TxProcessor: txProcessor, RPCServer: rpcServer}
-
 	p2pServer := p2p.NewServer(c.P2PPort, c.Peers, stateDB, blockchainDB, bc_txpool)
 	go p2pServer.StartServer()
+
+	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), BlockchainDb: blockchainDB, LastHash: lastBlock.DeriveHash(), StateDB: stateDB, Txpool: bc_txpool, TxProcessor: txProcessor, RPCServer: rpcServer, P2PServer: p2pServer}
 
 	return bc
 }

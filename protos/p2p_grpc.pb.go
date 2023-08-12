@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	P2P_LatestBlock_FullMethodName   = "/protos.P2P/LatestBlock"
 	P2P_TxPoolPending_FullMethodName = "/protos.P2P/TxPoolPending"
+	P2P_BlocksInRange_FullMethodName = "/protos.P2P/BlocksInRange"
 )
 
 // P2PClient is the client API for P2P service.
@@ -29,6 +30,7 @@ const (
 type P2PClient interface {
 	LatestBlock(ctx context.Context, in *LatestBlockRequest, opts ...grpc.CallOption) (*LatestBlockResponse, error)
 	TxPoolPending(ctx context.Context, in *TxpoolPendingRequest, opts ...grpc.CallOption) (*TxpoolPendingResponse, error)
+	BlocksInRange(ctx context.Context, in *BlocksInRangeRequest, opts ...grpc.CallOption) (*BlocksInRangeResponse, error)
 }
 
 type p2PClient struct {
@@ -57,12 +59,22 @@ func (c *p2PClient) TxPoolPending(ctx context.Context, in *TxpoolPendingRequest,
 	return out, nil
 }
 
+func (c *p2PClient) BlocksInRange(ctx context.Context, in *BlocksInRangeRequest, opts ...grpc.CallOption) (*BlocksInRangeResponse, error) {
+	out := new(BlocksInRangeResponse)
+	err := c.cc.Invoke(ctx, P2P_BlocksInRange_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // P2PServer is the server API for P2P service.
 // All implementations must embed UnimplementedP2PServer
 // for forward compatibility
 type P2PServer interface {
 	LatestBlock(context.Context, *LatestBlockRequest) (*LatestBlockResponse, error)
 	TxPoolPending(context.Context, *TxpoolPendingRequest) (*TxpoolPendingResponse, error)
+	BlocksInRange(context.Context, *BlocksInRangeRequest) (*BlocksInRangeResponse, error)
 	mustEmbedUnimplementedP2PServer()
 }
 
@@ -75,6 +87,9 @@ func (UnimplementedP2PServer) LatestBlock(context.Context, *LatestBlockRequest) 
 }
 func (UnimplementedP2PServer) TxPoolPending(context.Context, *TxpoolPendingRequest) (*TxpoolPendingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TxPoolPending not implemented")
+}
+func (UnimplementedP2PServer) BlocksInRange(context.Context, *BlocksInRangeRequest) (*BlocksInRangeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BlocksInRange not implemented")
 }
 func (UnimplementedP2PServer) mustEmbedUnimplementedP2PServer() {}
 
@@ -125,6 +140,24 @@ func _P2P_TxPoolPending_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _P2P_BlocksInRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlocksInRangeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(P2PServer).BlocksInRange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: P2P_BlocksInRange_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(P2PServer).BlocksInRange(ctx, req.(*BlocksInRangeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // P2P_ServiceDesc is the grpc.ServiceDesc for P2P service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -139,6 +172,10 @@ var P2P_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TxPoolPending",
 			Handler:    _P2P_TxPoolPending_Handler,
+		},
+		{
+			MethodName: "BlocksInRange",
+			Handler:    _P2P_BlocksInRange_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
