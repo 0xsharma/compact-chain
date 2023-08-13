@@ -3,18 +3,16 @@ package core
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/0xsharma/compact-chain/config"
+	"github.com/0xsharma/compact-chain/p2p"
 	"github.com/0xsharma/compact-chain/protos"
 	"github.com/0xsharma/compact-chain/types"
 	"github.com/0xsharma/compact-chain/util"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // nolint : tparallel
@@ -74,7 +72,7 @@ func TestP2P(t *testing.T) {
 	chainBlocks = append(chainBlocks, chain.LastBlock)
 
 	// Create p2p client and connect to p2p grpc server
-	conn, client := connectToGRPCServer("localhost" + config.P2PPort)
+	conn, client := p2p.ConnectToGRPCServer("localhost" + config.P2PPort)
 	defer conn.Close()
 
 	// ASSERTIONS
@@ -129,15 +127,4 @@ func TestP2P(t *testing.T) {
 	assert.Equal(t, chainBlocks[2].DeriveHash(), blocksInRange[2].DeriveHash())
 	assert.Equal(t, chainBlocks[1].DeriveHash(), blocksInRange[1].DeriveHash())
 	assert.Equal(t, chainBlocks[0].DeriveHash(), blocksInRange[0].DeriveHash())
-}
-
-func connectToGRPCServer(addr string) (*grpc.ClientConn, protos.P2PClient) {
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("did not connect: %v", err)
-	}
-
-	c := protos.NewP2PClient(conn)
-
-	return conn, c
 }

@@ -21,6 +21,7 @@ type P2PServer struct {
 	GRPCSrv               *grpc.Server
 	Peers                 []string
 	P2PAddrBlockNumberMap map[string]int
+	Downloader            *Downloader
 
 	Peersmu               sync.Mutex
 	P2PAddrBroadcastMapmu sync.Mutex
@@ -51,6 +52,7 @@ func NewServer(port string, initPeers []string, statedb *dbstore.StateDB, blockc
 	}
 
 	grpcSrv := grpc.NewServer()
+	downloader := NewDownloader(initPeers)
 
 	p2psrv := &P2PServer{
 		Port:                  port,
@@ -61,6 +63,7 @@ func NewServer(port string, initPeers []string, statedb *dbstore.StateDB, blockc
 		StateDB:               statedb,
 		BlockchainDB:          blockchainDb,
 		Txpool:                txpool,
+		Downloader:            downloader,
 	}
 
 	return p2psrv
