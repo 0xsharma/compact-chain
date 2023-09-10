@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/0xsharma/compact-chain/config"
@@ -29,6 +30,16 @@ var (
 		Short: "Start the Compact-Chain node",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("Starting Compact-Chain node\n\n")
+			nodeID, _ := strconv.ParseInt(args[0], 10, 0)
+			startBlockchainNode(nodeID)
+		},
+	}
+
+	demoCmd = &cobra.Command{
+		Use:   "demo",
+		Short: "Demo the Compact-Chain node",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("Starting Compact-Chain node\n\n")
 			demoBlockchain()
 		},
 	}
@@ -42,6 +53,7 @@ func Execute() error {
 func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(startCmd)
+	rootCmd.AddCommand(demoCmd)
 }
 
 var (
@@ -61,6 +73,7 @@ func demoBlockchain() {
 		BalanceAlloc:        map[string]*big.Int{},
 		P2PPort:             ":6060",
 		Peers:               []string{"localhost:6061"},
+		BlockTime:           4,
 	}
 
 	chain := core.NewBlockchain(config)
@@ -77,4 +90,23 @@ func demoBlockchain() {
 		chain.AddBlock([]byte(fmt.Sprintf("Block %d", i)), []*types.Transaction{})
 		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.DeriveHash().String())
 	}
+}
+
+func startBlockchainNode(nodeId int64) {
+	fmt.Println("Starting node", nodeId)
+
+	config := &config.Config{
+		ConsensusDifficulty: 20,
+		ConsensusName:       "pow",
+		DBDir:               dbPath + fmt.Sprint(nodeId),
+		StateDBDir:          stateDbPath + fmt.Sprint(nodeId),
+		MinFee:              big.NewInt(100),
+		RPCPort:             ":1711" + fmt.Sprint(nodeId),
+		BalanceAlloc:        map[string]*big.Int{},
+		P2PPort:             ":6060" + fmt.Sprint(nodeId),
+		Peers:               []string{"localhost:60601", "localhost:60602", "localhost:60603"},
+		BlockTime:           4,
+	}
+
+	core.StartBlockchain(config)
 }

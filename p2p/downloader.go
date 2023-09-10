@@ -12,7 +12,11 @@ import (
 )
 
 type Downloader struct {
-	Peers []Peer
+	Peers []*Peer
+	Self  string
+
+	TxpoolCh chan *types.Transaction
+	BlockCh  chan *types.Block
 }
 
 type Peer struct {
@@ -22,12 +26,20 @@ type Peer struct {
 	LatestBlock *types.Block
 }
 
-func NewDownloader(initPeers []string) *Downloader {
-	downloader := &Downloader{}
+func NewDownloader(self string, initPeers []string, txpoolCh chan *types.Transaction, blockCh chan *types.Block) *Downloader {
+	downloader := &Downloader{
+		TxpoolCh: txpoolCh,
+		BlockCh:  blockCh,
+		Self:     self,
+	}
 
 	for _, peer := range initPeers {
+		if peer == downloader.Self {
+			continue
+		}
+
 		conn, c := ConnectToGRPCServer(peer)
-		downloader.Peers = append(downloader.Peers, Peer{
+		downloader.Peers = append(downloader.Peers, &Peer{
 			Addr:       peer,
 			ClientConn: conn,
 			P2PClient:  c,
@@ -39,37 +51,45 @@ func NewDownloader(initPeers []string) *Downloader {
 
 func (d *Downloader) Start() {
 	for _, peer := range d.Peers {
-		go peer.PeerBlocksLoop()
-		go peer.PeerTxpoolLoop()
+		go peer.PeerBlocksLoop(d.BlockCh)
+		go peer.PeerTxpoolLoop(d.TxpoolCh)
 	}
 }
 
-func (d *Downloader) GetPeers() []Peer {
+func (d *Downloader) GetPeers() []*Peer {
 	return d.Peers
 }
 
-func (p *Peer) PeerBlocksLoop() {
+func (p *Peer) PeerBlocksLoop(blockCh chan *types.Block) {
 	for {
-		// TODO (0xsharma) : Add a channel to send this to core.Blockchain
-		r, _ := p.P2PClient.LatestBlock(context.Background(), &protos.LatestBlockRequest{})
+		r, err := p.P2PClient.LatestBlock(context.Background(), &protos.LatestBlockRequest{})
+		if err != nil {
+			time.Sleep(5000 * time.Millisecond)
+			continue
+		}
+
 		rBlock := types.DeserializeBlock(r.EncodedBlock)
 
 		p.LatestBlock = rBlock
+
+		// send block to core.Blockchain
+		blockCh <- rBlock
 
 		time.Sleep(100 * time.Millisecond)
 	}
 }
 
-func (p *Peer) PeerTxpoolLoop() {
+func (p *Peer) PeerTxpoolLoop(txpoolCh chan *types.Transaction) {
 	for {
-		// TODO (0xsharma) : Add a channel to send this to txpool.Txpool
-		rTxpool, _ := p.P2PClient.TxPoolPending(context.Background(), &protos.TxpoolPendingRequest{})
-
-		txs := []*types.Transaction{}
+		rTxpool, err := p.P2PClient.TxPoolPending(context.Background(), &protos.TxpoolPendingRequest{})
+		if err != nil {
+			time.Sleep(5000 * time.Millisecond)
+			continue
+		}
 
 		for _, tx := range rTxpool.EncodedTxs {
-			// nolint : staticcheck
-			txs = append(txs, types.DeserializeTransaction(tx))
+			// send tx to txpool.Txpool
+			txpoolCh <- types.DeserializeTransaction(tx)
 		}
 
 		time.Sleep(100 * time.Millisecond)

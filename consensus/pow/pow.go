@@ -74,3 +74,36 @@ func (c *POW) Mine(b *types.Block) *types.Block {
 
 	return b
 }
+
+// Validate validates the block with the proof of work consensus.
+func (c *POW) Validate(b *types.Block) bool {
+	validTxs := []*types.Transaction{}
+
+	for _, tx := range b.Transactions {
+		if c.TxProcessor.IsValid(tx) {
+			err := c.TxProcessor.ProcessTx(tx)
+			if err == nil {
+				validTxs = append(validTxs, tx)
+			} else {
+				fmt.Println("Failed to execute Tx :", "tx :", tx, "error", err)
+				return false
+			}
+		} else {
+			fmt.Println("Invalid Tx :", "tx :", tx)
+			return false
+		}
+	}
+
+	b.Transactions = validTxs
+
+	hash := b.DeriveHash()
+	hashBytes := hash.Bytes()
+	hashBig := new(big.Int).SetBytes(hashBytes)
+
+	if hashBig.Cmp(c.GetTarget()) > 0 {
+		fmt.Println("Invalid block hash for POW :", hashBig, "target :", c.GetTarget())
+		return false
+	}
+
+	return true
+}

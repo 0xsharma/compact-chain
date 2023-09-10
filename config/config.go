@@ -25,6 +25,7 @@ type Config struct {
 	BalanceAlloc        map[string]*big.Int
 	P2PPort             string
 	Peers               []string
+	BlockTime           int
 }
 
 func DefaultConfig() *Config {
@@ -36,6 +37,7 @@ func DefaultConfig() *Config {
 		MinFee:              big.NewInt(100),
 		RPCPort:             ":1711",
 		P2PPort:             ":6060",
+		BlockTime:           4,
 	}
 
 	return cfg

@@ -20,7 +20,6 @@ type RPCDomains struct {
 }
 
 var registerOnce sync.Once
-var RPCregisterOnce sync.Once
 
 func NewRPCServer(addr string, domains *RPCDomains) *RPCServer {
 	srv := rpc.NewServer()

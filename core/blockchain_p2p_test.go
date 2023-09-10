@@ -35,6 +35,7 @@ func TestP2P(t *testing.T) {
 		P2PPort:          ":6060",
 		Mine:             true,
 		SignerPrivateKey: util.HexToPrivateKey("e3ddd0f483e2ef1f8a0b4db676bce3eaebd7d9afc68e1e7e28ca8738a6"), // Address = 0x93a63fc45341fc02ac9cce62cc5aeb5c5799403e
+		BlockTime:        4,
 	}
 
 	chain := NewBlockchain(config)

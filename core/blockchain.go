@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/0xsharma/compact-chain/config"
 	"github.com/0xsharma/compact-chain/consensus"
@@ -29,10 +30,21 @@ type Blockchain struct {
 	TxProcessor  *executer.TxProcessor
 	Signer       *util.Address
 	P2PServer    *p2p.P2PServer
+
+	TxpoolCh     chan *types.Transaction
+	BlockCh      chan *types.Block
+	TxpoolChSize int
+	BlockChSize  int
 }
 
 // defaultConsensusDifficulty is the default difficulty for the proof of work consensus.
 var defaultConsensusDifficulty = 10
+
+// defaultTxpoolChSize is the default size of the txpool channel.
+var defaultTxpoolChSize = 1000
+
+// defaultBlockChSize is the default size of the block channel.
+var defaultBlockChSize = 100
 
 // NewBlockchain creates a new blockchain with the given config.
 func NewBlockchain(c *config.Config) *Blockchain {
@@ -100,19 +112,77 @@ func NewBlockchain(c *config.Config) *Blockchain {
 		panic("Invalid consensus algorithm")
 	}
 
-	bc_txpool := txpool.NewTxPool(c.MinFee, stateDB.DB)
+	txpoolChSize := defaultTxpoolChSize
+	blockChSize := defaultBlockChSize
+
+	txpoolCh := make(chan *types.Transaction, txpoolChSize)
+	blockCh := make(chan *types.Block, blockChSize)
+
+	bc_txpool := txpool.NewTxPool(c.MinFee, stateDB.DB, txpoolCh)
 
 	rpcDomains := &rpc.RPCDomains{
 		TxPool: bc_txpool,
 	}
 	rpcServer := rpc.NewRPCServer(c.RPCPort, rpcDomains)
 
-	p2pServer := p2p.NewServer(c.P2PPort, c.Peers, stateDB, blockchainDB, bc_txpool)
+	p2pServer := p2p.NewServer(c.P2PPort, c.Peers, stateDB, blockchainDB, bc_txpool, txpoolCh, blockCh)
 	go p2pServer.StartServer()
 
-	bc := &Blockchain{LastBlock: lastBlock, Consensus: consensus, Mutex: new(sync.RWMutex), BlockchainDb: blockchainDB, LastHash: lastBlock.DeriveHash(), StateDB: stateDB, Txpool: bc_txpool, TxProcessor: txProcessor, RPCServer: rpcServer, P2PServer: p2pServer}
+	bc := &Blockchain{LastBlock: lastBlock,
+		Consensus:    consensus,
+		Mutex:        new(sync.RWMutex),
+		BlockchainDb: blockchainDB,
+		LastHash:     lastBlock.DeriveHash(),
+		StateDB:      stateDB,
+		Txpool:       bc_txpool,
+		TxProcessor:  txProcessor,
+		RPCServer:    rpcServer,
+		P2PServer:    p2pServer,
+		TxpoolCh:     txpoolCh,
+		BlockCh:      blockCh,
+	}
 
 	return bc
+}
+
+func StartBlockchain(config *config.Config) {
+	chain := NewBlockchain(config)
+	if chain.LastBlock.Number.Int64() == 0 {
+		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.DeriveHash().String())
+	} else {
+		fmt.Println("LastNumber : ", chain.LastBlock.Number, "LastHash : ", chain.LastBlock.DeriveHash().String())
+	}
+
+	blockTime := config.BlockTime
+
+	go chain.ImportBlockLoop()
+
+	for {
+		start := time.Now()
+		lastBlockNumber := chain.LastBlock.Number
+		chain.AddBlock([]byte(fmt.Sprintf("Block %d", lastBlockNumber)), []*types.Transaction{})
+
+		var delay float64
+
+		// Adjust delay to maintain block time
+		elapsed := time.Since(start)
+		if elapsed.Seconds() < float64(blockTime) {
+			delay = float64(blockTime) - elapsed.Seconds()
+			time.Sleep(time.Duration(delay) * time.Second)
+		}
+
+		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.DeriveHash().String(), "Elapsed : ", elapsed.Seconds())
+	}
+}
+
+func (bc *Blockchain) ImportBlockLoop() {
+	// nolint : gosimple
+	for {
+		select {
+		case block := <-bc.BlockCh:
+			bc.AddExternalBlock(block)
+		}
+	}
 }
 
 // AddBlock mines and adds a new block to the blockchain.
@@ -143,6 +213,38 @@ func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction) {
 	}
 
 	bc.LastBlock = minedBlock
+}
+
+// AddBlock mines and adds a new block to the blockchain.
+func (bc *Blockchain) AddExternalBlock(block *types.Block) {
+	bc.Mutex.Lock()
+	defer bc.Mutex.Unlock()
+
+	if block.Number.Cmp(bc.LastBlock.Number) <= 0 {
+		return
+	}
+
+	// Validate block
+	if valid := bc.Consensus.Validate(block); !valid {
+		fmt.Println("Invalid block", block.Number, block.DeriveHash().String())
+		return
+	}
+
+	dbBatch := bc.BlockchainDb.DB.NewBatch()
+
+	// Batch write to db
+	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.HashesKey, block.DeriveHash().String())), block.Serialize())
+	dbBatch.Put([]byte(dbstore.PrefixKey(dbstore.BlockNumberKey, block.Number.String())), block.DeriveHash().Bytes())
+	dbBatch.Put([]byte(dbstore.LastHashKey), block.DeriveHash().Bytes())
+
+	// Commit batch to db
+	err := bc.BlockchainDb.DB.WriteBatch(dbBatch)
+	if err != nil {
+		panic(err)
+	}
+
+	bc.LastBlock = block
+	fmt.Println("Imported block", block.Number, block.DeriveHash().String())
 }
 
 // Mine the genesis block and do initial balance allocation.

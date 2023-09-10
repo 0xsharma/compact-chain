@@ -22,7 +22,7 @@ func NewRandomTx(t *testing.T) *types.Transaction {
 func TestTxpoolAdd(t *testing.T) {
 	t.Parallel()
 
-	txpool := NewTxPool(big.NewInt(0), nil)
+	txpool := NewTxPool(big.NewInt(0), nil, nil)
 
 	for i := 0; i < 100; i++ {
 		txpool.AddTx(NewRandomTx(t))

@@ -10,6 +10,7 @@ import (
 	"github.com/0xsharma/compact-chain/dbstore"
 	"github.com/0xsharma/compact-chain/protos"
 	"github.com/0xsharma/compact-chain/txpool"
+	"github.com/0xsharma/compact-chain/types"
 	"google.golang.org/grpc"
 )
 
@@ -40,7 +41,7 @@ type P2PMessage struct {
 	Error   error
 }
 
-func NewServer(port string, initPeers []string, statedb *dbstore.StateDB, blockchainDb *dbstore.BlockchainDB, txpool *txpool.TxPool) *P2PServer {
+func NewServer(port string, initPeers []string, statedb *dbstore.StateDB, blockchainDb *dbstore.BlockchainDB, txpool *txpool.TxPool, txpoolCh chan *types.Transaction, blockCh chan *types.Block) *P2PServer {
 	// sanitize p2p port
 	if port == "" {
 		port = defaultP2pPort
@@ -52,7 +53,8 @@ func NewServer(port string, initPeers []string, statedb *dbstore.StateDB, blockc
 	}
 
 	grpcSrv := grpc.NewServer()
-	downloader := NewDownloader(initPeers)
+	downloader := NewDownloader(fmt.Sprintf("localhost%s", port), initPeers, txpoolCh, blockCh)
+	downloader.Start()
 
 	p2psrv := &P2PServer{
 		Port:                  port,
