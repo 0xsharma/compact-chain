@@ -170,8 +170,6 @@ func StartBlockchain(config *config.Config) {
 			delay = float64(blockTime) - elapsed.Seconds()
 			time.Sleep(time.Duration(delay) * time.Second)
 		}
-
-		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.DeriveHash().String(), "Elapsed : ", elapsed.Seconds())
 	}
 }
 
@@ -189,6 +187,8 @@ func (bc *Blockchain) ImportBlockLoop() {
 func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction) {
 	bc.Mutex.Lock()
 	defer bc.Mutex.Unlock()
+
+	start := time.Now()
 
 	prevBlock := bc.LastBlock
 	blockNumber := big.NewInt(0).Add(prevBlock.Number, big.NewInt(1))
@@ -213,6 +213,9 @@ func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction) {
 	}
 
 	bc.LastBlock = minedBlock
+	elapsed := time.Since(start)
+
+	fmt.Println("Mined block", block.Number, block.DeriveHash().String(), "Elapsed", elapsed.Seconds())
 }
 
 // AddBlock mines and adds a new block to the blockchain.
@@ -220,7 +223,7 @@ func (bc *Blockchain) AddExternalBlock(block *types.Block) {
 	bc.Mutex.Lock()
 	defer bc.Mutex.Unlock()
 
-	if block.Number.Cmp(bc.LastBlock.Number) <= 0 {
+	if big.NewInt(0).Sub(block.Number, big.NewInt(1)).Cmp(bc.LastBlock.Number) != 0 {
 		return
 	}
 
