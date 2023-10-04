@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/gob"
 	"math/big"
 
@@ -16,14 +17,15 @@ func (txs Transactions) Array() []*Transaction {
 }
 
 type Transaction struct {
-	From  util.Address
-	To    util.Address
-	Value *big.Int
-	Msg   []byte
-	Fee   *big.Int
-	Nonce *big.Int
-	R     *big.Int
-	S     *big.Int
+	From      util.Address
+	To        util.Address
+	Value     *big.Int
+	Msg       []byte
+	Fee       *big.Int
+	Nonce     *big.Int
+	R         *big.Int
+	S         *big.Int
+	PublicKey *ecdsa.PublicKey
 }
 
 func (tx *Transaction) Hash() *util.Hash {
@@ -46,8 +48,9 @@ func (tx *Transaction) Equals(other merkletree.Content) (bool, error) {
 	OtherNonce := other.(*Transaction).Nonce.Bytes()
 	OtherR := other.(*Transaction).R.Bytes()
 	OtherS := other.(*Transaction).S.Bytes()
+	OtherPublicKey := other.(*Transaction).PublicKey
 
-	out := tx.From == OtherFrom && tx.To == OtherTo && bytes.Equal(tx.Value.Bytes(), OtherValue) && bytes.Equal(tx.Msg, OtherMsg) && bytes.Equal(tx.Fee.Bytes(), OtherFee) && bytes.Equal(tx.Nonce.Bytes(), OtherNonce) && bytes.Equal(tx.R.Bytes(), OtherR) && bytes.Equal(tx.S.Bytes(), OtherS)
+	out := tx.From == OtherFrom && tx.To == OtherTo && bytes.Equal(tx.Value.Bytes(), OtherValue) && bytes.Equal(tx.Msg, OtherMsg) && bytes.Equal(tx.Fee.Bytes(), OtherFee) && bytes.Equal(tx.Nonce.Bytes(), OtherNonce) && bytes.Equal(tx.R.Bytes(), OtherR) && bytes.Equal(tx.S.Bytes(), OtherS) && tx.PublicKey == OtherPublicKey
 
 	return out, nil
 }
@@ -86,4 +89,8 @@ func (tx *Transaction) Sign(ua *util.UnlockedAccount) {
 
 	tx.R = r
 	tx.S = s
+}
+
+func (tx *Transaction) Verify() bool {
+	return ecdsa.Verify(tx.PublicKey, tx.Hash().Bytes(), tx.R, tx.S)
 }

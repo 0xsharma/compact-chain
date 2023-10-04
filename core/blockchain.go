@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"sync"
@@ -35,6 +36,9 @@ type Blockchain struct {
 	BlockCh      chan *types.Block
 	TxpoolChSize int
 	BlockChSize  int
+
+	MineInterrupt     chan bool
+	MineInterruptSize int
 }
 
 // defaultConsensusDifficulty is the default difficulty for the proof of work consensus.
@@ -45,6 +49,9 @@ var defaultTxpoolChSize = 1000
 
 // defaultBlockChSize is the default size of the block channel.
 var defaultBlockChSize = 100
+
+// defaultMineInterruptSize is the default size of the mine interrupt channel.
+var defaultMineInterruptSize = 100
 
 // NewBlockchain creates a new blockchain with the given config.
 func NewBlockchain(c *config.Config) *Blockchain {
@@ -114,9 +121,11 @@ func NewBlockchain(c *config.Config) *Blockchain {
 
 	txpoolChSize := defaultTxpoolChSize
 	blockChSize := defaultBlockChSize
+	mineInterruptSize := defaultMineInterruptSize
 
 	txpoolCh := make(chan *types.Transaction, txpoolChSize)
 	blockCh := make(chan *types.Block, blockChSize)
+	mineInterrupt := make(chan bool, mineInterruptSize)
 
 	bc_txpool := txpool.NewTxPool(c.MinFee, stateDB.DB, txpoolCh)
 
@@ -129,17 +138,18 @@ func NewBlockchain(c *config.Config) *Blockchain {
 	go p2pServer.StartServer()
 
 	bc := &Blockchain{LastBlock: lastBlock,
-		Consensus:    consensus,
-		Mutex:        new(sync.RWMutex),
-		BlockchainDb: blockchainDB,
-		LastHash:     lastBlock.DeriveHash(),
-		StateDB:      stateDB,
-		Txpool:       bc_txpool,
-		TxProcessor:  txProcessor,
-		RPCServer:    rpcServer,
-		P2PServer:    p2pServer,
-		TxpoolCh:     txpoolCh,
-		BlockCh:      blockCh,
+		Consensus:     consensus,
+		Mutex:         new(sync.RWMutex),
+		BlockchainDb:  blockchainDB,
+		LastHash:      lastBlock.DeriveHash(),
+		StateDB:       stateDB,
+		Txpool:        bc_txpool,
+		TxProcessor:   txProcessor,
+		RPCServer:     rpcServer,
+		P2PServer:     p2pServer,
+		TxpoolCh:      txpoolCh,
+		BlockCh:       blockCh,
+		MineInterrupt: mineInterrupt,
 	}
 
 	return bc
@@ -160,7 +170,7 @@ func StartBlockchain(config *config.Config) {
 	for {
 		start := time.Now()
 		lastBlockNumber := chain.LastBlock.Number
-		chain.AddBlock([]byte(fmt.Sprintf("Block %d", lastBlockNumber)), []*types.Transaction{})
+		chain.AddBlock([]byte(fmt.Sprintf("Block %d", lastBlockNumber)), chain.Txpool.Transactions, chain.MineInterrupt, config.SignerPrivateKey)
 
 		var delay float64
 
@@ -178,13 +188,17 @@ func (bc *Blockchain) ImportBlockLoop() {
 	for {
 		select {
 		case block := <-bc.BlockCh:
-			bc.AddExternalBlock(block)
+			err := bc.AddExternalBlock(block)
+			if err == nil {
+				bc.MineInterrupt <- true
+			}
+
 		}
 	}
 }
 
 // AddBlock mines and adds a new block to the blockchain.
-func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction) {
+func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction, mineInterrupt chan bool, signerPrivateKey *ecdsa.PrivateKey) {
 	bc.Mutex.Lock()
 	defer bc.Mutex.Unlock()
 
@@ -197,7 +211,13 @@ func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction) {
 	block.Transactions = txs
 
 	// Mine block
-	minedBlock := bc.Consensus.Mine(block)
+	minedBlock := bc.Consensus.Mine(block, mineInterrupt)
+	if minedBlock == nil {
+		return
+	}
+
+	ua := util.NewUnlockedAccount(signerPrivateKey)
+	minedBlock.Sign(ua)
 
 	dbBatch := bc.BlockchainDb.DB.NewBatch()
 
@@ -219,18 +239,18 @@ func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction) {
 }
 
 // AddBlock mines and adds a new block to the blockchain.
-func (bc *Blockchain) AddExternalBlock(block *types.Block) {
+func (bc *Blockchain) AddExternalBlock(block *types.Block) error {
 	bc.Mutex.Lock()
 	defer bc.Mutex.Unlock()
 
 	if big.NewInt(0).Sub(block.Number, big.NewInt(1)).Cmp(bc.LastBlock.Number) != 0 {
-		return
+		return fmt.Errorf("Invalid block number")
 	}
 
 	// Validate block
 	if valid := bc.Consensus.Validate(block); !valid {
 		fmt.Println("Invalid block", block.Number, block.DeriveHash().String())
-		return
+		return fmt.Errorf("Invalid block")
 	}
 
 	dbBatch := bc.BlockchainDb.DB.NewBatch()
@@ -248,6 +268,8 @@ func (bc *Blockchain) AddExternalBlock(block *types.Block) {
 
 	bc.LastBlock = block
 	fmt.Println("Imported block", block.Number, block.DeriveHash().String())
+
+	return nil
 }
 
 // Mine the genesis block and do initial balance allocation.

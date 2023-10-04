@@ -11,6 +11,6 @@ type Consensus interface {
 	GetDifficulty() *big.Int
 	SetDifficulty(d *big.Int)
 	GetTarget() *big.Int
-	Mine(b *types.Block) *types.Block
+	Mine(b *types.Block, mineInterrupt chan bool) *types.Block
 	Validate(b *types.Block) bool
 }

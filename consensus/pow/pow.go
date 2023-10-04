@@ -1,6 +1,7 @@
 package pow
 
 import (
+	"crypto/rand"
 	"fmt"
 	"math/big"
 
@@ -38,7 +39,7 @@ func (c *POW) GetTarget() *big.Int {
 }
 
 // Mine mines the block with the proof of work consensus with the given difficulty.
-func (c *POW) Mine(b *types.Block) *types.Block {
+func (c *POW) Mine(b *types.Block, mineInterrupt chan bool) *types.Block {
 	nonce := big.NewInt(0)
 
 	validTxs := []*types.Transaction{}
@@ -59,20 +60,25 @@ func (c *POW) Mine(b *types.Block) *types.Block {
 	b.Transactions = validTxs
 
 	for {
-		b.SetNonce(nonce)
-		hash := b.DeriveHash()
+		select {
+		case <-mineInterrupt:
+			return nil
 
-		hashBytes := hash.Bytes()
-		hashBig := new(big.Int).SetBytes(hashBytes)
+		default:
+			b.SetNonce(nonce)
+			hash := b.DeriveHash()
 
-		if hashBig.Cmp(c.GetTarget()) < 0 {
-			break
+			hashBytes := hash.Bytes()
+			hashBig := new(big.Int).SetBytes(hashBytes)
+
+			if hashBig.Cmp(c.GetTarget()) < 0 {
+				return b
+			}
+
+			n, _ := rand.Int(rand.Reader, big.NewInt(100))
+			nonce.Add(nonce, big.NewInt(n.Int64()))
 		}
-
-		nonce.Add(nonce, big.NewInt(1))
 	}
-
-	return b
 }
 
 // Validate validates the block with the proof of work consensus.

@@ -10,6 +10,7 @@ import (
 	"github.com/0xsharma/compact-chain/config"
 	"github.com/0xsharma/compact-chain/core"
 	"github.com/0xsharma/compact-chain/types"
+	"github.com/0xsharma/compact-chain/util"
 	"github.com/spf13/cobra"
 )
 
@@ -87,7 +88,7 @@ func demoBlockchain() {
 
 	for i := lastNumber.Int64() + 1; i <= lastNumber.Int64()+10; i++ {
 		time.Sleep(2 * time.Second)
-		chain.AddBlock([]byte(fmt.Sprintf("Block %d", i)), []*types.Transaction{})
+		chain.AddBlock([]byte(fmt.Sprintf("Block %d", i)), []*types.Transaction{}, make(chan bool), config.SignerPrivateKey)
 		fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.DeriveHash().String())
 	}
 }
@@ -105,7 +106,8 @@ func startBlockchainNode(nodeId int64) {
 		BalanceAlloc:        map[string]*big.Int{},
 		P2PPort:             ":6060" + fmt.Sprint(nodeId),
 		Peers:               []string{"localhost:60601", "localhost:60602", "localhost:60603"},
-		BlockTime:           4,
+		BlockTime:           6,
+		SignerPrivateKey:    util.HexToPrivateKey("c3fc038a9abc0f483e2e1f8a0b4db676bce3eaebd7d9afc68e1e7e28ca8738a" + fmt.Sprint(nodeId)),
 	}
 
 	core.StartBlockchain(config)

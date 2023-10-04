@@ -63,13 +63,13 @@ func TestBlockchainStateBalance(t *testing.T) {
 
 	// Add block 1 with empty txSet
 	time.Sleep(2 * time.Second)
-	chain.AddBlock([]byte(fmt.Sprintf("Block %d", chain.LastBlock.Number.Int64()+1)), []*types.Transaction{})
+	chain.AddBlock([]byte(fmt.Sprintf("Block %d", chain.LastBlock.Number.Int64()+1)), []*types.Transaction{}, make(chan bool), pkey)
 
 	fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.DeriveHash().String(), "TxCount", len(chain.LastBlock.Transactions))
 
 	//Add block 2
 	time.Sleep(2 * time.Second)
-	chain.AddBlock([]byte(fmt.Sprintf("Block %d", chain.LastBlock.Number.Int64()+1)), chain.Txpool.GetTxs())
+	chain.AddBlock([]byte(fmt.Sprintf("Block %d", chain.LastBlock.Number.Int64()+1)), chain.Txpool.GetTxs(), make(chan bool), pkey)
 
 	fmt.Println("Number : ", chain.LastBlock.Number, "Hash : ", chain.LastBlock.DeriveHash().String(), "TxCount", len(chain.LastBlock.Transactions))
 
