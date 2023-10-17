@@ -53,7 +53,7 @@ func NewServer(port string, initPeers []string, statedb *dbstore.StateDB, blockc
 	}
 
 	grpcSrv := grpc.NewServer()
-	downloader := NewDownloader(fmt.Sprintf("localhost%s", port), initPeers, txpoolCh, blockCh)
+	downloader := NewDownloader(fmt.Sprintf("localhost%s", port), initPeers, txpoolCh, blockCh, blockchainDb)
 	downloader.Start()
 
 	p2psrv := &P2PServer{

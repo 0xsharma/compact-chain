@@ -2,6 +2,7 @@ package core
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -167,10 +168,19 @@ func StartBlockchain(config *config.Config) {
 
 	go chain.ImportBlockLoop()
 
+	// Manual sleep to let it connect to peers
+	time.Sleep(4 * time.Second)
+
 	for {
 		start := time.Now()
 		lastBlockNumber := chain.LastBlock.Number
-		chain.AddBlock([]byte(fmt.Sprintf("Block %d", lastBlockNumber)), chain.Txpool.Transactions, chain.MineInterrupt, config.SignerPrivateKey)
+
+		shouldSleep := true
+
+		err := chain.AddBlock([]byte(fmt.Sprintf("Block %d", lastBlockNumber.Int64()+1)), chain.Txpool.Transactions, chain.MineInterrupt, config.SignerPrivateKey)
+		if err != nil {
+			shouldSleep = false
+		}
 
 		var delay float64
 
@@ -178,7 +188,10 @@ func StartBlockchain(config *config.Config) {
 		elapsed := time.Since(start)
 		if elapsed.Seconds() < float64(blockTime) {
 			delay = float64(blockTime) - elapsed.Seconds()
-			time.Sleep(time.Duration(delay) * time.Second)
+
+			if shouldSleep && delay > 0 {
+				time.Sleep(time.Duration(delay) * time.Second)
+			}
 		}
 	}
 }
@@ -191,6 +204,8 @@ func (bc *Blockchain) ImportBlockLoop() {
 			err := bc.AddExternalBlock(block)
 			if err == nil {
 				bc.MineInterrupt <- true
+			} else {
+				fmt.Println("Error importing block", err)
 			}
 
 		}
@@ -198,10 +213,7 @@ func (bc *Blockchain) ImportBlockLoop() {
 }
 
 // AddBlock mines and adds a new block to the blockchain.
-func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction, mineInterrupt chan bool, signerPrivateKey *ecdsa.PrivateKey) {
-	bc.Mutex.Lock()
-	defer bc.Mutex.Unlock()
-
+func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction, mineInterrupt chan bool, signerPrivateKey *ecdsa.PrivateKey) error {
 	start := time.Now()
 
 	prevBlock := bc.LastBlock
@@ -213,11 +225,14 @@ func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction, mineInterr
 	// Mine block
 	minedBlock := bc.Consensus.Mine(block, mineInterrupt)
 	if minedBlock == nil {
-		return
+		return errors.New("Mining interrupted")
 	}
 
 	ua := util.NewUnlockedAccount(signerPrivateKey)
 	minedBlock.Sign(ua)
+
+	bc.Mutex.Lock()
+	defer bc.Mutex.Unlock()
 
 	dbBatch := bc.BlockchainDb.DB.NewBatch()
 
@@ -235,7 +250,38 @@ func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction, mineInterr
 	bc.LastBlock = minedBlock
 	elapsed := time.Since(start)
 
-	fmt.Println("Mined block", block.Number, block.DeriveHash().String(), "Elapsed", elapsed.Seconds())
+	fmt.Println("Mined block", block.Number, block.DeriveHash().String(), "Elapsed", elapsed.Seconds(), "data", string(block.ExtraData))
+
+	return nil
+}
+
+func (bc *Blockchain) RemoveLastBlock() {
+	if bc.LastBlock.Number.Int64() == 0 {
+		// Cannot remove genesis block
+		return
+	}
+
+	lastBlockParentHash := bc.LastBlock.ParentHash
+
+	dbBatch := bc.BlockchainDb.DB.NewBatch()
+
+	// Batch write to db
+	dbBatch.Delete([]byte(dbstore.PrefixKey(dbstore.HashesKey, bc.LastBlock.DeriveHash().String())))
+	dbBatch.Delete([]byte(dbstore.PrefixKey(dbstore.BlockNumberKey, bc.LastBlock.Number.String())))
+	dbBatch.Put([]byte(dbstore.LastHashKey), lastBlockParentHash.Bytes())
+
+	// Commit batch to db
+	err := bc.BlockchainDb.DB.WriteBatch(dbBatch)
+	if err != nil {
+		panic(err)
+	}
+
+	newLastBlock, err := bc.BlockchainDb.GetBlockByHash(lastBlockParentHash)
+	if err != nil {
+		panic(err)
+	}
+
+	bc.LastBlock = newLastBlock
 }
 
 // AddBlock mines and adds a new block to the blockchain.
@@ -243,8 +289,26 @@ func (bc *Blockchain) AddExternalBlock(block *types.Block) error {
 	bc.Mutex.Lock()
 	defer bc.Mutex.Unlock()
 
-	if big.NewInt(0).Sub(block.Number, big.NewInt(1)).Cmp(bc.LastBlock.Number) != 0 {
+	currentLatestBlock := bc.LastBlock
+	externalBlock := block
+
+	if currentLatestBlock.Number.Int64() > externalBlock.Number.Int64() {
+		fmt.Println("Invalid block number", block.Number, block.DeriveHash().String(), "LastBlock", bc.LastBlock.Number, bc.LastBlock.DeriveHash().String())
 		return fmt.Errorf("Invalid block number")
+	}
+
+	if currentLatestBlock.Number.Int64() == externalBlock.Number.Int64() {
+		if currentLatestBlock.Nonce.Int64() > externalBlock.Nonce.Int64() {
+			return fmt.Errorf("Better Block already exists")
+		} else if currentLatestBlock.Nonce.Int64() < externalBlock.Nonce.Int64() {
+			fmt.Println("REORG : Better remote Block found", block.Number, block.DeriveHash().String())
+			bc.RemoveLastBlock()
+		}
+	}
+
+	if block.ParentHash.String() != bc.LastBlock.DeriveHash().String() {
+		fmt.Println("Invalid parent hash", block.Number, block.ParentHash, "LastBlock", bc.LastBlock.Number, bc.LastBlock.DeriveHash().String())
+		return fmt.Errorf("Invalid parent hash")
 	}
 
 	// Validate block

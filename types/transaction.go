@@ -25,7 +25,7 @@ type Transaction struct {
 	Nonce     *big.Int
 	R         *big.Int
 	S         *big.Int
-	PublicKey *ecdsa.PublicKey
+	PublicKey *util.CompactPublicKey
 }
 
 func (tx *Transaction) Hash() *util.Hash {
@@ -92,5 +92,6 @@ func (tx *Transaction) Sign(ua *util.UnlockedAccount) {
 }
 
 func (tx *Transaction) Verify() bool {
-	return ecdsa.Verify(tx.PublicKey, tx.Hash().Bytes(), tx.R, tx.S)
+	pubKey := tx.PublicKey.PublicKey()
+	return ecdsa.Verify(pubKey, tx.Hash().Bytes(), tx.R, tx.S)
 }

@@ -21,7 +21,7 @@ type Block struct {
 
 	R         *big.Int
 	S         *big.Int
-	PublicKey *ecdsa.PublicKey
+	PublicKey *util.CompactPublicKey
 }
 
 // NewBlock creates a new block and sets the hash.
@@ -112,9 +112,10 @@ func (b *Block) Sign(ua *util.UnlockedAccount) {
 
 	b.R = r
 	b.S = s
-	b.PublicKey = ua.PublicKey()
+	b.PublicKey = util.PublicKeyToCompact(ua.PublicKey())
 }
 
 func (b *Block) Verify() bool {
-	return ecdsa.Verify(b.PublicKey, b.DeriveHash().Bytes(), b.R, b.S)
+	pubKey := b.PublicKey.PublicKey()
+	return ecdsa.Verify(pubKey, b.DeriveHash().Bytes(), b.R, b.S)
 }
