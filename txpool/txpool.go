@@ -18,21 +18,38 @@ type TxPool struct {
 	MinFee       *big.Int
 	State        *dbstore.DB
 	Transactions []*types.Transaction
+
+	TxPoolCh chan *types.Transaction
 }
 
-func NewTxPool(minFee *big.Int, db *dbstore.DB) *TxPool {
+func NewTxPool(minFee *big.Int, db *dbstore.DB, txpoolCh chan *types.Transaction) *TxPool {
 	if db == nil {
 		fmt.Println("DB is nil, running in mock mode for tests")
 	}
 
-	return &TxPool{
-		MinFee: minFee,
-		State:  db,
+	txpool := &TxPool{
+		MinFee:   minFee,
+		State:    db,
+		TxPoolCh: txpoolCh,
 	}
+
+	go txpool.loop()
+
+	return txpool
 }
 
 func intToBool(n int) bool {
 	return n >= 0
+}
+
+func (txp *TxPool) loop() {
+	// nolint : gosimple
+	for {
+		select {
+		case tx := <-txp.TxPoolCh:
+			txp.AddTx(tx)
+		}
+	}
 }
 
 func (txp *TxPool) IsValid(tx *types.Transaction) bool {

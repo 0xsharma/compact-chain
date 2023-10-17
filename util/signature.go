@@ -12,6 +12,28 @@ type UnlockedAccount struct {
 	privateKey *ecdsa.PrivateKey
 }
 
+type CompactPublicKey struct {
+	CurveParams *elliptic.CurveParams `json:"Curve"`
+	X           *big.Int              `json:"X"`
+	Y           *big.Int              `json:"Y"`
+}
+
+func (cpk *CompactPublicKey) PublicKey() *ecdsa.PublicKey {
+	return &ecdsa.PublicKey{
+		Curve: cpk.CurveParams,
+		X:     cpk.X,
+		Y:     cpk.Y,
+	}
+}
+
+func PublicKeyToCompact(pubkey *ecdsa.PublicKey) *CompactPublicKey {
+	return &CompactPublicKey{
+		CurveParams: pubkey.Curve.Params(),
+		X:           pubkey.X,
+		Y:           pubkey.Y,
+	}
+}
+
 func NewUnlockedAccount(privateKey *ecdsa.PrivateKey) *UnlockedAccount {
 	return &UnlockedAccount{
 		privateKey: privateKey,

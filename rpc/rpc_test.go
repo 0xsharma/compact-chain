@@ -23,7 +23,7 @@ func TestTxpoolRPC(t *testing.T) {
 	pkey := util.HexToPrivateKey("c3fc038a9abc0f483e2e1f8a0b4db676bce3eaebd7d9afc68e1e7e28ca8738a6")
 	ua := util.NewUnlockedAccount(pkey)
 
-	txpool := txpool.NewTxPool(config.DefaultConfig().MinFee, nil)
+	txpool := txpool.NewTxPool(config.DefaultConfig().MinFee, nil, nil)
 	NewRPCServer(rpcPort, &RPCDomains{TxPool: txpool})
 	time.Sleep(2 * time.Second)
 

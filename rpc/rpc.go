@@ -2,21 +2,24 @@ package rpc
 
 import (
 	"log"
-	"net"
 	"net/http"
 	"net/rpc"
+	"sync"
 
 	"github.com/0xsharma/compact-chain/txpool"
 )
 
 type RPCServer struct {
-	Server *rpc.Server
-	Addr   string
+	Server     *rpc.Server
+	Addr       string
+	HttpServer *http.Server
 }
 
 type RPCDomains struct {
 	TxPool *txpool.TxPool
 }
+
+var registerOnce sync.Once
 
 func NewRPCServer(addr string, domains *RPCDomains) *RPCServer {
 	srv := rpc.NewServer()
@@ -26,33 +29,36 @@ func NewRPCServer(addr string, domains *RPCDomains) *RPCServer {
 		log.Fatalf("Couldn't activate modules. Error %s", err)
 	}
 
-	go rpcServer.Start(addr)
+	rpcServer.Start(addr)
 
 	return rpcServer
 }
 
 func (s *RPCServer) Start(addr string) {
-	rpc.HandleHTTP()
+	registerOnce.Do(func() {
+		rpc.HandleHTTP()
+	})
 
-	l, e := net.Listen("tcp", addr)
-	if e != nil {
-		log.Fatalf("Couldn't start listening on port %s. Error %s", addr, e)
-	}
+	// nolint : gosec
+	srv := &http.Server{Addr: addr}
 
 	log.Println("Serving RPC handler")
 
-	// nolint : gosec
-	err := http.Serve(l, nil)
-	if err != nil {
-		log.Fatalf("Error serving: %s", err)
-	}
+	go func() {
+		// nolint : gosec
+		err := srv.ListenAndServe()
+		if err != http.ErrServerClosed {
+			log.Fatalf("Error serving: %s", err)
+		}
+	}()
+
+	s.HttpServer = srv
 }
 
 func (s *RPCServer) ActivateModules(domains *RPCDomains) error {
 	if domains.TxPool != nil {
-		if err := rpc.Register(domains.TxPool); err != nil {
-			return err
-		}
+		// nolint : errcheck
+		rpc.Register(domains.TxPool)
 	}
 
 	return nil

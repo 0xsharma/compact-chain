@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/gob"
 	"math/big"
 
@@ -17,6 +18,10 @@ type Block struct {
 	Nonce        *big.Int
 	Transactions []*Transaction
 	TxRoot       *util.Hash
+
+	R         *big.Int
+	S         *big.Int
+	PublicKey *util.CompactPublicKey
 }
 
 // NewBlock creates a new block and sets the hash.
@@ -97,4 +102,20 @@ func DeserializeBlock(data []byte) *Block {
 	}
 
 	return &block
+}
+
+func (b *Block) Sign(ua *util.UnlockedAccount) {
+	r, s, err := ua.Sign(b.DeriveHash().Bytes())
+	if err != nil {
+		panic(err)
+	}
+
+	b.R = r
+	b.S = s
+	b.PublicKey = util.PublicKeyToCompact(ua.PublicKey())
+}
+
+func (b *Block) Verify() bool {
+	pubKey := b.PublicKey.PublicKey()
+	return ecdsa.Verify(pubKey, b.DeriveHash().Bytes(), b.R, b.S)
 }
