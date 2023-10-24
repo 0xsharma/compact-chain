@@ -30,6 +30,21 @@ terminal/instance 3 : go run main.go start 3
 And so on....
 ```
 
+### Send Transactions
+
+
+Make sure a node is running and note the endpoint.
+
+```
+go run main.go send-tx --to <TO_ADDR> --privatekey <SENDER_PRIV_KEY> --value <TX_VALUE> --rpc <RPC_ADDR> --nonce <NONCE>
+```
+example (also, will run with fresh chain and default config) :
+```
+go run main.go send-tx --to 0x93a63fc45341fc02ac9cce62cc5aeb5c5799403e --privatekey c3fc038a9abc0f483e2e1f8a0b4db676bce3eaebd7d9afc68e1e7e28ca8738a6 --value 1 --rpc localhost:17111 --nonce 0
+```
+(increase the nonce for the consecutive transactions by 1 to fire more transactions)
+###### NOTE : Transactions can also be send using RPC calls directly.
+
 ### Run Tests
 
 ```

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"sync"
 
 	"github.com/0xsharma/compact-chain/dbstore"
 	"github.com/0xsharma/compact-chain/protos"
@@ -23,9 +22,6 @@ type P2PServer struct {
 	Peers                 []string
 	P2PAddrBlockNumberMap map[string]int
 	Downloader            *Downloader
-
-	Peersmu               sync.Mutex
-	P2PAddrBroadcastMapmu sync.Mutex
 
 	BlockchainDB *dbstore.BlockchainDB
 	StateDB      *dbstore.StateDB

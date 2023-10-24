@@ -62,6 +62,13 @@ func (c *POW) Mine(b *types.Block, mineInterrupt chan bool) *types.Block {
 	for {
 		select {
 		case <-mineInterrupt:
+			for _, tx := range b.Transactions {
+				err := c.TxProcessor.RollbackTx(tx)
+				if err != nil {
+					fmt.Println("Failed to rollback Tx :", "tx :", tx, "error", err)
+				}
+			}
+
 			return nil
 
 		default:
@@ -86,7 +93,7 @@ func (c *POW) Validate(b *types.Block) bool {
 	validTxs := []*types.Transaction{}
 
 	for _, tx := range b.Transactions {
-		if c.TxProcessor.IsValid(tx) {
+		if c.TxProcessor.IsValidImport(tx) {
 			err := c.TxProcessor.ProcessTx(tx)
 			if err == nil {
 				validTxs = append(validTxs, tx)

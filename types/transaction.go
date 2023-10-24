@@ -89,6 +89,7 @@ func (tx *Transaction) Sign(ua *util.UnlockedAccount) {
 
 	tx.R = r
 	tx.S = s
+	tx.PublicKey = util.PublicKeyToCompact(ua.PublicKey())
 }
 
 func (tx *Transaction) Verify() bool {

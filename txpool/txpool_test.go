@@ -16,7 +16,7 @@ func NewRandomTx(t *testing.T) *types.Transaction {
 	// nolint : gosec
 	r := rand.Int63n(1000)
 
-	return &types.Transaction{From: util.Address{}, To: util.Address{}, Value: big.NewInt(1), Msg: []byte{}, Fee: big.NewInt(r)}
+	return &types.Transaction{From: util.Address{}, To: util.Address{}, Value: big.NewInt(1), Msg: []byte{}, Fee: big.NewInt(r), Nonce: big.NewInt(0)}
 }
 
 func TestTxpoolAdd(t *testing.T) {
