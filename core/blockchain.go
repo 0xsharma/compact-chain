@@ -177,7 +177,7 @@ func StartBlockchain(config *config.Config) {
 
 		shouldSleep := true
 
-		err := chain.AddBlock([]byte(fmt.Sprintf("Block %d", lastBlockNumber.Int64()+1)), chain.Txpool.Transactions, chain.MineInterrupt, config.SignerPrivateKey)
+		err := chain.AddBlock([]byte(fmt.Sprintf("Block %d", lastBlockNumber.Int64()+1)), chain.Txpool.GetTxs(), chain.MineInterrupt, config.SignerPrivateKey)
 		if err != nil {
 			shouldSleep = false
 		}
@@ -204,10 +204,7 @@ func (bc *Blockchain) ImportBlockLoop() {
 			err := bc.AddExternalBlock(block)
 			if err == nil {
 				bc.MineInterrupt <- true
-			} else {
-				fmt.Println("Error importing block", err)
 			}
-
 		}
 	}
 }
@@ -250,9 +247,18 @@ func (bc *Blockchain) AddBlock(data []byte, txs []*types.Transaction, mineInterr
 	bc.LastBlock = minedBlock
 	elapsed := time.Since(start)
 
-	fmt.Println("Mined block", block.Number, block.DeriveHash().String(), "Elapsed", elapsed.Seconds(), "data", string(block.ExtraData))
+	for _, tx := range minedBlock.Transactions {
+		// nolint : errcheck
+		bc.Txpool.RemoveTx(tx)
+	}
+
+	fmt.Println("Mined block", block.Number, block.DeriveHash().String(), "Elapsed", prettySeconds(elapsed.Seconds()), "data", string(block.ExtraData), "TxCount", len(block.Transactions))
 
 	return nil
+}
+
+func prettySeconds(f float64) string {
+	return fmt.Sprintf("%.2fsec", f)
 }
 
 func (bc *Blockchain) RemoveLastBlock() {
@@ -274,6 +280,13 @@ func (bc *Blockchain) RemoveLastBlock() {
 	err := bc.BlockchainDb.DB.WriteBatch(dbBatch)
 	if err != nil {
 		panic(err)
+	}
+
+	for _, tx := range bc.LastBlock.Transactions {
+		err := bc.TxProcessor.RollbackTx(tx)
+		if err != nil {
+			fmt.Println("Failed to rollback Tx :", "tx :", tx, "error", err)
+		}
 	}
 
 	newLastBlock, err := bc.BlockchainDb.GetBlockByHash(lastBlockParentHash)
@@ -330,8 +343,13 @@ func (bc *Blockchain) AddExternalBlock(block *types.Block) error {
 		panic(err)
 	}
 
+	for _, tx := range block.Transactions {
+		// nolint : errcheck
+		bc.Txpool.RemoveTx(tx)
+	}
+
 	bc.LastBlock = block
-	fmt.Println("Imported block", block.Number, block.DeriveHash().String())
+	fmt.Println("Imported block", block.Number, block.DeriveHash().String(), "TxCount", len(block.Transactions))
 
 	return nil
 }

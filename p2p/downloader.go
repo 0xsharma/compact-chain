@@ -95,6 +95,7 @@ func (p *Peer) PeerBlocksLoop(blockCh chan *types.Block, blockchainDB dbstore.Bl
 				endHeight = uint64(localLatest.Number.Int64() + 50)
 			}
 
+			time.Sleep(1 * time.Second)
 			rBlocks, err := p.P2PClient.BlocksInRange(context.Background(), &protos.BlocksInRangeRequest{
 				StartHeight: uint64(localLatest.Number.Int64() + 1),
 				EndHeight:   endHeight,

@@ -63,3 +63,8 @@ func BytesToAddress(b []byte) *Address {
 
 	return &address
 }
+
+// string to Address
+func StringToAddress(s string) *Address {
+	return BytesToAddress([]byte(s))
+}

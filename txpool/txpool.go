@@ -8,6 +8,7 @@ import (
 
 	"github.com/0xsharma/compact-chain/dbstore"
 	"github.com/0xsharma/compact-chain/types"
+	"github.com/golang/groupcache/lru"
 )
 
 var (
@@ -20,6 +21,8 @@ type TxPool struct {
 	Transactions []*types.Transaction
 
 	TxPoolCh chan *types.Transaction
+
+	LatestIncludedTxs *lru.Cache
 }
 
 func NewTxPool(minFee *big.Int, db *dbstore.DB, txpoolCh chan *types.Transaction) *TxPool {
@@ -28,9 +31,10 @@ func NewTxPool(minFee *big.Int, db *dbstore.DB, txpoolCh chan *types.Transaction
 	}
 
 	txpool := &TxPool{
-		MinFee:   minFee,
-		State:    db,
-		TxPoolCh: txpoolCh,
+		MinFee:            minFee,
+		State:             db,
+		TxPoolCh:          txpoolCh,
+		LatestIncludedTxs: lru.New(1000),
 	}
 
 	go txpool.loop()
@@ -62,6 +66,11 @@ func (txp *TxPool) IsValid(tx *types.Transaction) bool {
 	}
 
 	from := tx.From
+
+	signOk := tx.Verify()
+	if !signOk {
+		return false
+	}
 
 	balance, err := txp.State.Get(dbstore.PrefixKey(dbstore.BalanceKey, from.String()))
 	if err != nil {
@@ -101,6 +110,17 @@ func (tp *TxPool) AddTx(tx *types.Transaction) {
 		return
 	}
 
+	_, ok := tp.LatestIncludedTxs.Get(tx.Hash().String())
+	if ok {
+		return
+	}
+
+	for _, tx2 := range tp.Transactions {
+		if tx2.Hash().String() == tx.Hash().String() {
+			return
+		}
+	}
+
 	txs := append(tp.Transactions, tx)
 	sort.Slice(txs, func(i, j int) bool {
 		return intToBool(txs[i].Fee.Cmp(txs[j].Fee))
@@ -113,6 +133,17 @@ func (tp *TxPool) AddTxs(txs []*types.Transaction) {
 	validTxs := make([]*types.Transaction, 0, len(txs))
 
 	for _, tx := range txs {
+		_, ok := tp.LatestIncludedTxs.Get(tx.Hash().String())
+		if ok {
+			continue
+		}
+
+		for _, tx2 := range tp.Transactions {
+			if tx2.Hash().String() == tx.Hash().String() {
+				return
+			}
+		}
+
 		if tp.IsValid(tx) {
 			validTxs = append(validTxs, tx)
 		}
@@ -126,6 +157,23 @@ func (tp *TxPool) AddTxs(txs []*types.Transaction) {
 	tp.Transactions = txpoolTxs
 }
 
+// remove transaction from txpool
+func (tp *TxPool) RemoveTx(tx *types.Transaction) error {
+	for i, tx2 := range tp.Transactions {
+		if tx2.Hash().String() == tx.Hash().String() {
+			tp.Transactions = append(tp.Transactions[:i], tp.Transactions[i+1:]...)
+			return nil
+		}
+	}
+
+	return errors.New("transaction not found")
+}
+
 func (tp *TxPool) GetTxs() []*types.Transaction {
-	return tp.Transactions
+	txs := tp.Transactions
+	for _, tx := range txs {
+		tp.LatestIncludedTxs.Add(tx.Hash().String(), []byte{})
+	}
+
+	return txs
 }
